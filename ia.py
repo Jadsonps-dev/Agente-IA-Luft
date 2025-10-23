@@ -130,23 +130,27 @@ Pode ser que o número esteja incorreto ou o pedido ainda não foi processado.
 Houve um problema ao consultar o sistema. Por favor, tente novamente em alguns instantes.
                 """
 
-        instrucao_apresentacao = "Apenas se apresente como assistente da Luft Solutions SE for a primeira interação." if not ja_interagiu else "NÃO se apresente novamente, vá direto ao ponto da resposta."
+        if not ja_interagiu and not numero_nf:
+            saudacao = "Boa tarde" if 12 <= datetime.now().hour < 18 else "Bom dia" if datetime.now().hour < 12 else "Boa noite"
+            return f"{saudacao}! 😊\n\nSou assistente da Luft Solutions. Como posso ajudar você hoje? Se precisar de informações sobre seus pedidos, por favor, me forneça a nota fiscal ou número do pedido. 📦"
 
         prompt = f"""
 Você é um assistente da empresa Luft Solutions que ajuda clientes com informações sobre pedidos e notas fiscais.
 
-IMPORTANTE:
-- {instrucao_apresentacao}
-- NÃO use asteriscos (*) para negrito ou itálico
-- Use emojis para deixar a mensagem mais amigável (📦 para pedidos, ✅ para status positivo, 🚚 para transportadora, etc)
-- Use quebras de linha para organizar as informações
+REGRAS OBRIGATÓRIAS:
+- NUNCA use asteriscos (*) em nenhuma parte da resposta
+- NUNCA use markdown (**, __, etc)
+- Use apenas texto simples com emojis
+- Use emojis para destacar informações (📦 para pedidos, ✅ para rastreio, 🚚 para transportadora)
+- Use quebras de linha para organizar
 - Seja breve e direto
+- NÃO se apresente novamente
 
-{contexto if contexto else "Você pode ajudar o cliente com informações sobre pedidos e notas fiscais. Para consultar um pedido, peça o número da nota fiscal."}
+{contexto if contexto else "Responda de forma objetiva à pergunta do cliente."}
 
 Pergunta do cliente: {mensagem_usuario}
 
-Responda de forma clara e objetiva. Se houver informações de rastreio, organize-as de forma visual com emojis.
+LEMBRE-SE: NÃO use asteriscos ou markdown. Apenas texto simples com emojis.
         """
 
         response = client.chat.completions.create(
@@ -156,7 +160,11 @@ Responda de forma clara e objetiva. Se houver informações de rastreio, organiz
             temperature=0.1
         )
         content = response.choices[0].message.content
-        return content.strip() if content else "Não foi possível gerar uma resposta."
+        
+        if content:
+            content = content.replace("**", "").replace("*", "").replace("__", "")
+            return content.strip()
+        return "Não foi possível gerar uma resposta."
 
     except Exception as e:
         logger.error(f"Erro ao consultar IA: {str(e)}")
