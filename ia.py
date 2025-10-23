@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-ID_DEPOSITANTE = 2361178
+ID_DEPOSITANTES = [2361178, 538607]
 
 
 def extrair_numero_nota_fiscal(mensagem):
@@ -39,60 +39,61 @@ def extrair_numero_nota_fiscal(mensagem):
 
 def consultar_nota_fiscal(numero_nf):
     """
-    Consulta informações da nota fiscal via API WMS.
+    Consulta informações da nota fiscal via API WMS em múltiplos depositantes.
+    Tenta primeiro no depositante 2361178, se não encontrar, tenta no 538607.
     Retorna os dados formatados ou None em caso de erro.
     """
-    estrutura = None
-    try:
-        logger.info(f"Consultando nota fiscal: {numero_nf}")
-        
-        sql_query = Queries.query_nf(ID_DEPOSITANTE, numero_nf)
-        
-        estrutura = EstruturaSQL(ID_DEPOSITANTE, sql_query)
-        
-        data_fim = datetime.now().strftime("%d/%m/%Y")
-        data_inicio = (datetime.now() - timedelta(days=90)).strftime("%d/%m/%Y")
-        
-        resposta_api = estrutura.fazer_requisicao_api(data_inicio, data_fim)
-        
-        if not resposta_api:
-            logger.warning(f"Nenhuma resposta da API para NF {numero_nf}")
-            return None
-        
-        value = resposta_api.get('value', {})
-        lines = value.get('lines', [])
-        
-        if not lines:
-            logger.warning(f"Nenhum registro encontrado para NF {numero_nf}")
-            return {
-                'encontrado': False,
-                'numero_nf': numero_nf
-            }
-        
-        primeira_linha = lines[0]
-        columns = primeira_linha.get('columns', [])
-        
-        if len(columns) >= 4:
-            dados_nf = {
-                'encontrado': True,
-                'numero_nf': columns[0],
-                'status': columns[1],
-                'transportadora': columns[2] if columns[2] else 'Não informada',
-                'codigo_rastreio': columns[3] if columns[3] else 'Não disponível'
-            }
+    data_fim = datetime.now().strftime("%d/%m/%Y")
+    data_inicio = (datetime.now() - timedelta(days=90)).strftime("%d/%m/%Y")
+    
+    for id_depositante in ID_DEPOSITANTES:
+        estrutura = None
+        try:
+            logger.info(f"Consultando nota fiscal {numero_nf} no depositante {id_depositante}")
             
-            logger.info(f"Dados da NF encontrados: {dados_nf}")
-            return dados_nf
-        else:
-            logger.warning(f"Formato de resposta inesperado para NF {numero_nf}")
-            return None
+            sql_query = Queries.query_nf(id_depositante, numero_nf)
+            estrutura = EstruturaSQL(id_depositante, sql_query)
             
-    except Exception as e:
-        logger.error(f"Erro ao consultar nota fiscal {numero_nf}: {str(e)}")
-        return None
-    finally:
-        if estrutura is not None:
-            estrutura.fechar_sessao()
+            resposta_api = estrutura.fazer_requisicao_api(data_inicio, data_fim)
+            
+            if not resposta_api:
+                logger.warning(f"Nenhuma resposta da API para NF {numero_nf} no depositante {id_depositante}")
+                continue
+            
+            value = resposta_api.get('value', {})
+            lines = value.get('lines', [])
+            
+            if lines and len(lines) > 0:
+                primeira_linha = lines[0]
+                columns = primeira_linha.get('columns', [])
+                
+                if len(columns) >= 4:
+                    dados_nf = {
+                        'encontrado': True,
+                        'numero_nf': columns[0],
+                        'status': columns[1],
+                        'transportadora': columns[2] if columns[2] else 'Não informada',
+                        'codigo_rastreio': columns[3] if columns[3] else 'Não disponível',
+                        'id_depositante': id_depositante
+                    }
+                    
+                    logger.info(f"✅ Dados da NF {numero_nf} encontrados no depositante {id_depositante}")
+                    return dados_nf
+            
+            logger.info(f"NF {numero_nf} não encontrada no depositante {id_depositante}, tentando próximo...")
+                
+        except Exception as e:
+            logger.error(f"Erro ao consultar NF {numero_nf} no depositante {id_depositante}: {str(e)}")
+            continue
+        finally:
+            if estrutura is not None:
+                estrutura.fechar_sessao()
+    
+    logger.warning(f"❌ NF {numero_nf} não encontrada em nenhum dos depositantes")
+    return {
+        'encontrado': False,
+        'numero_nf': numero_nf
+    }
 
 
 def perguntar_ia(mensagem_usuario, instance=None, sender=None):
