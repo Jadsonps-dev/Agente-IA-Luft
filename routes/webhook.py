@@ -5,6 +5,9 @@ import logging
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+import time
+import threading
+from config.globals import redis_client
 
 # Carregar variáveis de ambiente explicitamente
 load_dotenv()
@@ -82,26 +85,41 @@ def receber_webhook():
         
         logger.info(f"Processando mensagem de {sender_number}: {mensagem}")
         
-        try:
-            resposta = perguntar_ia(mensagem, instance_name, sender_number)
-            logger.info(f"Resposta da IA: {resposta}")
-
-            response_data = evolution.enviar_mensagem(
-                message=resposta,
-                instance=instance_name,
-                instance_key=api_key,
-                sender_number=sender_number
-            )
-            logger.info(f"Mensagem enviada com sucesso: {response_data}")
+        timestamp_atual = time.time()
+        redis_key = f"last_message:{sender_number}"
+        redis_client.set(redis_key, {"timestamp": timestamp_atual, "message": mensagem}, ex=20)
+        
+        def processar_com_delay():
+            time.sleep(15)
             
-        except Exception as e:
-            logger.error(f"Erro ao processar mensagem com IA: {str(e)}")
-            evolution.enviar_mensagem(
-                message="⚠️ Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente mais tarde.",
-                instance=instance_name,
-                instance_key=api_key,
-                sender_number=sender_number
-            )
+            ultima_mensagem = redis_client.get(redis_key)
+            if not ultima_mensagem or ultima_mensagem.get("timestamp") != timestamp_atual:
+                logger.info(f"Nova mensagem detectada de {sender_number}, cancelando processamento desta")
+                return
+            
+            try:
+                resposta = perguntar_ia(mensagem, instance_name, sender_number)
+                logger.info(f"Resposta da IA: {resposta}")
+
+                response_data = evolution.enviar_mensagem(
+                    message=resposta,
+                    instance=instance_name,
+                    instance_key=api_key,
+                    sender_number=sender_number
+                )
+                logger.info(f"Mensagem enviada com sucesso: {response_data}")
+                
+            except Exception as e:
+                logger.error(f"Erro ao processar mensagem com IA: {str(e)}")
+                evolution.enviar_mensagem(
+                    message="⚠️ Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente mais tarde.",
+                    instance=instance_name,
+                    instance_key=api_key,
+                    sender_number=sender_number
+                )
+        
+        thread = threading.Thread(target=processar_com_delay, daemon=True)
+        thread.start()
             
         return jsonify({"status": "processado"}), 200
 

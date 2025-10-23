@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timedelta
 from services.wms import EstruturaSQL
 from services.query import Queries
+from config.globals import redis_client
 
 load_dotenv()
 
@@ -98,6 +99,14 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
     try:
         contexto = ""
         
+        ja_interagiu = False
+        if sender:
+            historico_key = f"historico:{sender}"
+            historico = redis_client.get(historico_key)
+            if historico:
+                ja_interagiu = True
+            redis_client.set(historico_key, {"interagiu": True}, ex=3600)
+        
         numero_nf = extrair_numero_nota_fiscal(mensagem_usuario)
         
         if numero_nf:
@@ -121,18 +130,23 @@ Pode ser que o número esteja incorreto ou o pedido ainda não foi processado.
 Houve um problema ao consultar o sistema. Por favor, tente novamente em alguns instantes.
                 """
 
-        prompt = f"""
-Você é um assistente especializado da empresa Luft Solutions.
-Você ajuda clientes a rastrear seus pedidos e obter informações sobre notas fiscais.
+        instrucao_apresentacao = "Apenas se apresente como assistente da Luft Solutions SE for a primeira interação." if not ja_interagiu else "NÃO se apresente novamente, vá direto ao ponto da resposta."
 
-Se apresente de forma simpática e profissional.
+        prompt = f"""
+Você é um assistente da empresa Luft Solutions que ajuda clientes com informações sobre pedidos e notas fiscais.
+
+IMPORTANTE:
+- {instrucao_apresentacao}
+- NÃO use asteriscos (*) para negrito ou itálico
+- Use emojis para deixar a mensagem mais amigável (📦 para pedidos, ✅ para status positivo, 🚚 para transportadora, etc)
+- Use quebras de linha para organizar as informações
+- Seja breve e direto
 
 {contexto if contexto else "Você pode ajudar o cliente com informações sobre pedidos e notas fiscais. Para consultar um pedido, peça o número da nota fiscal."}
 
 Pergunta do cliente: {mensagem_usuario}
 
-Responda de forma clara, direta e profissional. Se houver informações de rastreio, destaque-as para o cliente.
-Se não encontrar a nota fiscal, sugira que o cliente verifique o número e tente novamente.
+Responda de forma clara e objetiva. Se houver informações de rastreio, organize-as de forma visual com emojis.
         """
 
         response = client.chat.completions.create(
