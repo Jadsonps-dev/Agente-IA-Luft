@@ -17,24 +17,42 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 ID_DEPOSITANTES = [2361178, 538607]
 
-# Carregar documentação da API
+# Carregar documentação da API e prompts do sistema
 with open('docs/api_wms_documentation.json', 'r', encoding='utf-8') as f:
     API_DOCS = json.load(f)
 
+with open('docs/prompts_sistema.json', 'r', encoding='utf-8') as f:
+    PROMPTS = json.load(f)
+
 MAPEAMENTO_STATUS = {
-    'expedido': 'EXPEDIDO',
-    'expedidos': 'EXPEDIDO',
-    'importado': 'IMPORTADO',
-    'importados': 'IMPORTADO',
-    'faturado': 'FATURADO',
-    'faturados': 'FATURADO',
-    'separacao': 'AG. SEPARAÇÃO',
-    'separação': 'AG. SEPARAÇÃO',
-    'processado': 'PROCESSADO',
-    'processados': 'PROCESSADO',
-    'cancelado': 'CANCELADO',
-    'cancelados': 'CANCELADO',
-    'fluxo': ['IMPORTADO', 'AG. SEPARAÇÃO', 'PROCESSADO', 'FATURADO', 'ENVIADO PARA FATURAMENTO']
+    'expedido':
+    'EXPEDIDO',
+    'expedidos':
+    'EXPEDIDO',
+    'importado':
+    'IMPORTADO',
+    'importados':
+    'IMPORTADO',
+    'faturado':
+    'FATURADO',
+    'faturados':
+    'FATURADO',
+    'separacao':
+    'AG. SEPARAÇÃO',
+    'separação':
+    'AG. SEPARAÇÃO',
+    'processado':
+    'PROCESSADO',
+    'processados':
+    'PROCESSADO',
+    'cancelado':
+    'CANCELADO',
+    'cancelados':
+    'CANCELADO',
+    'fluxo': [
+        'IMPORTADO', 'AG. SEPARAÇÃO', 'PROCESSADO', 'FATURADO',
+        'ENVIADO PARA FATURAMENTO'
+    ]
 }
 
 
@@ -48,83 +66,86 @@ def analisar_pergunta_com_ia(mensagem_usuario):
             "type": "function",
             "function": {
                 "name": "consultar_operacoes_wms",
-                "description": "Consulta operações no WMS baseado na documentação completa da API",
+                "description":
+                "Consulta operações no WMS baseado na documentação completa da API",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "tipo_consulta": {
-                            "type": "string",
-                            "enum": ["pedidos", "pecas", "nota_fiscal", "nenhuma"],
-                            "description": "Tipo: 'pedidos' = contar NOTA_FISCAL únicos | 'pecas' = somar QTDE | 'nota_fiscal' = buscar NF específica"
+                            "type":
+                            "string",
+                            "enum":
+                            ["pedidos", "pecas", "nota_fiscal", "nenhuma"],
+                            "description":
+                            "Tipo: 'pedidos' = contar NOTA_FISCAL únicos | 'pecas' = somar QTDE | 'nota_fiscal' = buscar NF específica"
                         },
                         "periodo": {
-                            "type": "string",
-                            "enum": ["hoje", "ontem", "semana", "mes", "personalizado"],
-                            "description": "Período da consulta"
+                            "type":
+                            "string",
+                            "enum": [
+                                "hoje", "ontem", "semana", "mes",
+                                "personalizado"
+                            ],
+                            "description":
+                            "Período da consulta"
                         },
                         "status_filtro": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Lista de status para filtrar. Valores possíveis: EXPEDIDO, IMPORTADO, FATURADO, PROCESSADO, CANCELADO, AG. SEPARAÇÃO, ENVIADO PARA FATURAMENTO"
+                            "type":
+                            "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description":
+                            "Lista de status para filtrar. Valores possíveis: EXPEDIDO, IMPORTADO, FATURADO, PROCESSADO, CANCELADO, AG. SEPARAÇÃO, ENVIADO PARA FATURAMENTO"
                         },
                         "coluna_data": {
-                            "type": "string",
+                            "type":
+                            "string",
                             "enum": ["PESADO_EM", "IMPORTADO_EM"],
-                            "description": "IMPORTANTE: Use PESADO_EM para status EXPEDIDO. Use IMPORTADO_EM para todos os outros status (IMPORTADO, FATURADO, CANCELADO, etc)"
+                            "description":
+                            "IMPORTANTE: Use PESADO_EM para status EXPEDIDO. Use IMPORTADO_EM para todos os outros status (IMPORTADO, FATURADO, CANCELADO, etc)"
                         },
                         "tipo_cliente": {
-                            "type": "string",
+                            "type":
+                            "string",
                             "enum": ["B2B", "B2C", "TODOS"],
-                            "description": "Filtro de tipo de cliente: B2B, B2C ou TODOS"
+                            "description":
+                            "Filtro de tipo de cliente: B2B, B2C ou TODOS"
                         },
                         "numero_nf": {
-                            "type": "string",
-                            "description": "Número da nota fiscal (apenas para tipo_consulta=nota_fiscal)"
+                            "type":
+                            "string",
+                            "description":
+                            "Número da nota fiscal (apenas para tipo_consulta=nota_fiscal)"
                         }
                     },
                     "required": ["tipo_consulta"]
                 }
             }
         }]
-        
-        prompt = f"""Você é um analisador especializado em consultas WMS da Luft Solutions.
 
-DOCUMENTAÇÃO COMPLETA DA API:
-{json.dumps(API_DOCS, indent=2, ensure_ascii=False)}
-
-REGRAS CRÍTICAS DE FILTRO DE DATA:
-- Se o status for EXPEDIDO → usar coluna PESADO_EM (data de saída)
-- Se o status for IMPORTADO, FATURADO, CANCELADO, etc → usar coluna IMPORTADO_EM (data de entrada)
-- Se perguntarem sobre "em fluxo" → usar coluna IMPORTADO_EM
-
-PERGUNTA DO USUÁRIO:
-"{mensagem_usuario}"
-
-Analise cuidadosamente e determine:
-1. Tipo de consulta (pedidos/peças/nota_fiscal)?
-2. Período (hoje/ontem/semana/mês)?
-3. Status para filtrar (EXPEDIDO, IMPORTADO, etc)?
-4. Qual coluna de data usar (PESADO_EM ou IMPORTADO_EM)?
-5. Filtro B2B/B2C?
-6. Número da NF (se aplicável)?
-
-Use a função consultar_operacoes_wms com TODOS os parâmetros corretos."""
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            tools=tools,
-            tool_choice="auto"
+        prompt_template = PROMPTS['prompts']['analisador_consultas']['template']
+        prompt = prompt_template.format(
+            documentacao_api=json.dumps(API_DOCS, indent=2, ensure_ascii=False),
+            pergunta_usuario=mensagem_usuario
         )
-        
+
+        response = client.chat.completions.create(model="gpt-4o-mini",
+                                                  messages=[{
+                                                      "role": "user",
+                                                      "content": prompt
+                                                  }],
+                                                  tools=tools,
+                                                  tool_choice="auto")
+
         if response.choices[0].message.tool_calls:
             tool_call = response.choices[0].message.tool_calls[0]
             argumentos = json.loads(tool_call.function.arguments)
             logger.info(f"✅ OpenAI analisou: {argumentos}")
             return argumentos
-        
+
         return None
-        
+
     except Exception as e:
         logger.error(f"Erro ao analisar pergunta com IA: {str(e)}")
         return None
@@ -136,7 +157,7 @@ def extrair_data_mensagem(mensagem):
     """
     hoje = datetime.now()
     mensagem_lower = mensagem.lower()
-    
+
     if 'hoje' in mensagem_lower:
         data_inicio = hoje.strftime("%d/%m/%Y")
         data_fim = hoje.strftime("%d/%m/%Y")
@@ -162,7 +183,7 @@ def extrair_data_mensagem(mensagem):
         else:
             data_inicio = hoje.strftime("%d/%m/%Y")
             data_fim = hoje.strftime("%d/%m/%Y")
-    
+
     return data_inicio, data_fim
 
 
@@ -172,7 +193,7 @@ def detectar_consulta_operacional(mensagem):
     Retorna: (é_consulta_operacional, tipo_consulta, status_filtro)
     """
     mensagem_lower = mensagem.lower()
-    
+
     padroes_operacionais = [
         r'quanto[s]?\s+(?:pedidos?|notas?)',
         r'quantidad[e]?\s+(?:de\s+)?(?:pedidos?|notas?|peças?|pecas?)',
@@ -181,19 +202,22 @@ def detectar_consulta_operacional(mensagem):
         r'total\s+(?:de\s+)?(?:pedidos?|notas?|peças?|pecas?)',
         r'(?:resumo|relatório|relatorio)\s+(?:de\s+)?(?:pedidos?|operaç|operac)'
     ]
-    
+
     for padrao in padroes_operacionais:
         if re.search(padrao, mensagem_lower):
-            tipo_consulta = 'pecas' if any(word in mensagem_lower for word in ['peça', 'peças', 'peca', 'pecas', 'quantidade de produto', 'total de produto']) else 'pedidos'
-            
+            tipo_consulta = 'pecas' if any(word in mensagem_lower for word in [
+                'peça', 'peças', 'peca', 'pecas', 'quantidade de produto',
+                'total de produto'
+            ]) else 'pedidos'
+
             status_filtro = None
             for key, value in MAPEAMENTO_STATUS.items():
                 if key in mensagem_lower:
                     status_filtro = value
                     break
-            
+
             return True, tipo_consulta, status_filtro
-    
+
     return False, None, None
 
 
@@ -206,14 +230,14 @@ def extrair_numero_nota_fiscal(mensagem):
         r'\b(?:nf|nota|nota fiscal|pedido|nfe)\s*[:.\s-]*(\d+)',
         r'\b(\d{5,})\b'
     ]
-    
+
     for padrao in padroes:
         match = re.search(padrao, mensagem, re.IGNORECASE)
         if match:
             numero = match.group(1)
             logger.info(f"Número de nota fiscal detectado: {numero}")
             return numero
-    
+
     return None
 
 
@@ -222,7 +246,7 @@ def processar_periodo(periodo):
     Converte o período em datas DD/MM/YYYY.
     """
     hoje = datetime.now()
-    
+
     if periodo == "hoje":
         data_inicio = data_fim = hoje.strftime("%d/%m/%Y")
     elif periodo == "ontem":
@@ -236,11 +260,16 @@ def processar_periodo(periodo):
         data_fim = hoje.strftime("%d/%m/%Y")
     else:
         data_inicio = data_fim = hoje.strftime("%d/%m/%Y")
-    
+
     return data_inicio, data_fim
 
 
-def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta='pedidos', coluna_data='IMPORTADO_EM', tipo_cliente='TODOS'):
+def consultar_operacoes(data_inicio,
+                        data_fim,
+                        status_filtro=None,
+                        tipo_consulta='pedidos',
+                        coluna_data='IMPORTADO_EM',
+                        tipo_cliente='TODOS'):
     """
     Consulta operações via API WMS com suporte a filtros avançados.
     
@@ -253,32 +282,39 @@ def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta
         tipo_cliente: 'B2B', 'B2C' ou 'TODOS'
     """
     logger.info(f"Consultando operações de {data_inicio} a {data_fim}")
-    logger.info(f"  Status: {status_filtro} | Tipo: {tipo_consulta} | Coluna Data: {coluna_data} | Cliente: {tipo_cliente}")
-    
+    logger.info(
+        f"  Status: {status_filtro} | Tipo: {tipo_consulta} | Coluna Data: {coluna_data} | Cliente: {tipo_cliente}"
+    )
+
     for id_depositante in ID_DEPOSITANTES:
         estrutura = None
         try:
             sql_query = Queries.query_status_op(id_depositante)
             sql_query = sql_query.replace("&Data_Inicio", f"'{data_inicio}'")
             sql_query = sql_query.replace("&Data_Fim", f"'{data_fim}'")
-            
+
             estrutura = EstruturaSQL(id_depositante, sql_query)
-            resposta_api = estrutura.fazer_requisicao_api(data_inicio, data_fim)
-            
+            resposta_api = estrutura.fazer_requisicao_api(
+                data_inicio, data_fim)
+
             if not resposta_api:
-                logger.warning(f"Nenhuma resposta da API para operações no depositante {id_depositante}")
+                logger.warning(
+                    f"Nenhuma resposta da API para operações no depositante {id_depositante}"
+                )
                 continue
-            
+
             value = resposta_api.get('value', {})
             lines = value.get('lines', [])
-            
+
             if not lines:
-                logger.info(f"Nenhum registro encontrado no depositante {id_depositante}")
+                logger.info(
+                    f"Nenhum registro encontrado no depositante {id_depositante}"
+                )
                 continue
-            
+
             pedidos_unicos = set()
             total_pecas = 0
-            
+
             for line in lines:
                 columns = line.get('columns', [])
                 if len(columns) >= 7:
@@ -288,26 +324,28 @@ def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta
                     importado_em = columns[3]
                     pesado_em = columns[4]
                     qtde = columns[5] if len(columns) > 5 else 0
-                    
+
                     filtro_status_ok = True
                     if isinstance(status_filtro, list):
                         filtro_status_ok = status_nf in status_filtro if status_filtro else True
                     elif status_filtro:
                         filtro_status_ok = status_nf == status_filtro
-                    
+
                     filtro_cliente_ok = True
                     if tipo_cliente == 'B2C':
-                        filtro_cliente_ok = classificacao.startswith('INSIDER_B2C') if classificacao else False
+                        filtro_cliente_ok = classificacao.startswith(
+                            'INSIDER_B2C') if classificacao else False
                     elif tipo_cliente == 'B2B':
-                        filtro_cliente_ok = classificacao.startswith('INSIDER_B2B') if classificacao else False
-                    
+                        filtro_cliente_ok = classificacao.startswith(
+                            'INSIDER_B2B') if classificacao else False
+
                     if filtro_status_ok and filtro_cliente_ok:
                         pedidos_unicos.add(nota_fiscal)
                         try:
                             total_pecas += float(qtde) if qtde else 0
                         except (ValueError, TypeError):
                             pass
-            
+
             if pedidos_unicos or total_pecas > 0:
                 resultado = {
                     'encontrado': True,
@@ -319,16 +357,20 @@ def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta
                     'data_fim': data_fim,
                     'id_depositante': id_depositante
                 }
-                logger.info(f"✅ Operações encontradas no depositante {id_depositante}: {resultado}")
+                logger.info(
+                    f"✅ Operações encontradas no depositante {id_depositante}: {resultado}"
+                )
                 return resultado
-                
+
         except Exception as e:
-            logger.error(f"Erro ao consultar operações no depositante {id_depositante}: {str(e)}")
+            logger.error(
+                f"Erro ao consultar operações no depositante {id_depositante}: {str(e)}"
+            )
             continue
         finally:
             if estrutura is not None:
                 estrutura.fechar_sessao()
-    
+
     return {
         'encontrado': True,
         'quantidade_pedidos': 0,
@@ -348,61 +390,72 @@ def consultar_nota_fiscal(numero_nf):
     """
     data_fim = datetime.now().strftime("%d/%m/%Y")
     data_inicio = (datetime.now() - timedelta(days=90)).strftime("%d/%m/%Y")
-    
+
     for id_depositante in ID_DEPOSITANTES:
         estrutura = None
         try:
-            logger.info(f"Consultando nota fiscal {numero_nf} no depositante {id_depositante}")
-            
+            logger.info(
+                f"Consultando nota fiscal {numero_nf} no depositante {id_depositante}"
+            )
+
             sql_query = Queries.query_nf(id_depositante, numero_nf)
             estrutura = EstruturaSQL(id_depositante, sql_query)
-            
-            resposta_api = estrutura.fazer_requisicao_api(data_inicio, data_fim)
-            
+
+            resposta_api = estrutura.fazer_requisicao_api(
+                data_inicio, data_fim)
+
             if not resposta_api:
-                logger.warning(f"Nenhuma resposta da API para NF {numero_nf} no depositante {id_depositante}")
+                logger.warning(
+                    f"Nenhuma resposta da API para NF {numero_nf} no depositante {id_depositante}"
+                )
                 continue
-            
+
             value = resposta_api.get('value', {})
             lines = value.get('lines', [])
-            
+
             if lines and len(lines) > 0:
                 primeira_linha = lines[0]
                 columns = primeira_linha.get('columns', [])
-                
+
                 if len(columns) >= 4:
                     dados_nf = {
                         'encontrado': True,
                         'numero_nf': columns[0],
                         'status': columns[1],
-                        'transportadora': columns[2] if columns[2] else 'Não informada',
-                        'codigo_rastreio': columns[3] if columns[3] else 'Não disponível',
+                        'transportadora':
+                        columns[2] if columns[2] else 'Não informada',
+                        'codigo_rastreio':
+                        columns[3] if columns[3] else 'Não disponível',
                         'id_depositante': id_depositante
                     }
-                    
-                    logger.info(f"✅ Dados da NF {numero_nf} encontrados no depositante {id_depositante}")
+
+                    logger.info(
+                        f"✅ Dados da NF {numero_nf} encontrados no depositante {id_depositante}"
+                    )
                     return dados_nf
-            
-            logger.info(f"NF {numero_nf} não encontrada no depositante {id_depositante}, tentando próximo...")
-                
+
+            logger.info(
+                f"NF {numero_nf} não encontrada no depositante {id_depositante}, tentando próximo..."
+            )
+
         except Exception as e:
-            logger.error(f"Erro ao consultar NF {numero_nf} no depositante {id_depositante}: {str(e)}")
+            logger.error(
+                f"Erro ao consultar NF {numero_nf} no depositante {id_depositante}: {str(e)}"
+            )
             continue
         finally:
             if estrutura is not None:
                 estrutura.fechar_sessao()
-    
-    logger.warning(f"❌ NF {numero_nf} não encontrada em nenhum dos depositantes")
-    return {
-        'encontrado': False,
-        'numero_nf': numero_nf
-    }
+
+    logger.warning(
+        f"❌ NF {numero_nf} não encontrada em nenhum dos depositantes")
+    return {'encontrado': False, 'numero_nf': numero_nf}
 
 
 def perguntar_ia(mensagem_usuario, instance=None, sender=None):
     try:
         contexto = ""
-        
+
         ja_interagiu = False
         if sender:
             historico_key = f"historico:{sender}"
@@ -410,32 +463,30 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
             if historico:
                 ja_interagiu = True
             redis_client.set(historico_key, {"interagiu": True}, ex=3600)
-        
+
         analise_ia = analisar_pergunta_com_ia(mensagem_usuario)
-        
-        if analise_ia and analise_ia.get('tipo_consulta') in ['pedidos', 'pecas']:
+
+        if analise_ia and analise_ia.get('tipo_consulta') in [
+                'pedidos', 'pecas'
+        ]:
             logger.info(f"🤖 IA detectou consulta operacional: {analise_ia}")
-            
+
             periodo = analise_ia.get('periodo', 'hoje')
             data_inicio, data_fim = processar_periodo(periodo)
             status_filtro = analise_ia.get('status_filtro')
             tipo_consulta = analise_ia['tipo_consulta']
             coluna_data = analise_ia.get('coluna_data', 'IMPORTADO_EM')
             tipo_cliente = analise_ia.get('tipo_cliente', 'TODOS')
-            
-            dados_op = consultar_operacoes(
-                data_inicio, 
-                data_fim, 
-                status_filtro, 
-                tipo_consulta,
-                coluna_data,
-                tipo_cliente
-            )
-            
+
+            dados_op = consultar_operacoes(data_inicio, data_fim,
+                                           status_filtro, tipo_consulta,
+                                           coluna_data, tipo_cliente)
+
             if dados_op and dados_op.get('encontrado'):
-                status_texto = ', '.join(status_filtro) if isinstance(status_filtro, list) else (status_filtro or "todos")
+                status_texto = ', '.join(status_filtro) if isinstance(
+                    status_filtro, list) else (status_filtro or "todos")
                 cliente_texto = f" ({tipo_cliente})" if tipo_cliente != 'TODOS' else ""
-                
+
                 if tipo_consulta == 'pecas':
                     contexto = f"""
 RESUMO DE OPERAÇÕES - PEÇAS{cliente_texto}:
@@ -452,13 +503,13 @@ Status: {status_texto}
 Coluna de Data: {coluna_data}
 Total de pedidos: {dados_op['quantidade_pedidos']}
                     """
-        
+
         elif analise_ia and analise_ia.get('tipo_consulta') == 'nota_fiscal':
             numero_nf = analise_ia.get('numero_nf')
             if numero_nf:
                 logger.info(f"🤖 IA detectou busca de NF: {numero_nf}")
                 dados_nf = consultar_nota_fiscal(numero_nf)
-                
+
                 if dados_nf and dados_nf.get('encontrado'):
                     contexto = f"""
 INFORMAÇÕES DA NOTA FISCAL {dados_nf['numero_nf']}:
@@ -477,38 +528,28 @@ Houve um problema ao consultar o sistema. Por favor, tente novamente em alguns i
                     """
 
         if not ja_interagiu and not contexto:
-            saudacao = "Boa tarde" if 12 <= datetime.now().hour < 18 else "Bom dia" if datetime.now().hour < 12 else "Boa noite"
-            return f"{saudacao}! 😊\n\nSou assistente da Luft Solutions. Como posso ajudar você hoje? Se precisar de informações sobre seus pedidos, por favor, me forneça a nota fiscal ou número do pedido. 📦"
+            hora_atual = datetime.now().hour
+            saudacao = "Boa tarde" if 12 <= hora_atual < 18 else "Bom dia" if hora_atual < 12 else "Boa noite"
+            return PROMPTS['prompts']['saudacao_inicial']['template'].format(saudacao=saudacao)
 
-        prompt = f"""
-Você é um assistente da empresa Luft Solutions que ajuda clientes com informações sobre pedidos e notas fiscais.
-
-REGRAS OBRIGATÓRIAS:
-- NUNCA use asteriscos (*) em nenhuma parte da resposta
-- NUNCA use markdown (**, __, etc)
-- Use apenas texto simples com emojis
-- Use emojis para destacar informações (📦 para pedidos, ✅ para rastreio, 🚚 para transportadora)
-- Use quebras de linha para organizar
-- Seja breve e direto
-- NÃO se apresente novamente
-
-{contexto if contexto else "Responda de forma objetiva à pergunta do cliente."}
-
-Pergunta do cliente: {mensagem_usuario}
-
-LEMBRE-SE: NÃO use asteriscos ou markdown. Apenas texto simples com emojis.
-        """
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=500,
-            temperature=0.1
+        prompt_template = PROMPTS['prompts']['assistente_resposta']['template']
+        prompt = prompt_template.format(
+            contexto=contexto if contexto else "Responda de forma objetiva à pergunta do cliente.",
+            pergunta_cliente=mensagem_usuario
         )
+
+        response = client.chat.completions.create(model="gpt-4o-mini",
+                                                  messages=[{
+                                                      "role": "user",
+                                                      "content": prompt
+                                                  }],
+                                                  max_tokens=500,
+                                                  temperature=0.1)
         content = response.choices[0].message.content
-        
+
         if content:
-            content = content.replace("**", "").replace("*", "").replace("__", "")
+            content = content.replace("**", "").replace("*",
+                                                        "").replace("__", "")
             return content.strip()
         return "Não foi possível gerar uma resposta."
 
