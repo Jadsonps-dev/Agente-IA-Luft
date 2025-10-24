@@ -62,28 +62,25 @@ def receber_webhook():
             # Processar mensagem de áudio
             logger.info("🎤 Mensagem de áudio detectada")
             
-            # Tentar diferentes localizações do base64
-            audio_base64 = (
-                message_data.get('base64') or  # Nível raiz
-                audio_message.get('base64') or  # Dentro de audioMessage
-                message_content.get('base64')  # Dentro de message
-            )
+            # WhatsApp envia a URL do áudio, não o base64 diretamente
+            audio_url = audio_message.get('url')
             
             # Log para debug
             logger.info(f"DEBUG - Estrutura da mensagem: {list(message_data.keys())}")
             logger.info(f"DEBUG - audioMessage keys: {list(audio_message.keys())}")
+            logger.info(f"DEBUG - URL do áudio: {audio_url}")
             
-            if not audio_base64:
-                logger.warning("Áudio sem base64")
-                logger.warning(f"DEBUG - message_data completo: {message_data}")
+            if not audio_url:
+                logger.warning("Áudio sem URL")
+                logger.warning(f"DEBUG - audioMessage completo: {audio_message}")
                 return jsonify({"status": "erro", "message": "Áudio inválido"}), 400
 
-            # Transcrever áudio
-            mensagem = AudioProcessor.processar_audio(audio_base64) # Utiliza a função processar_audio
+            # Transcrever áudio usando a URL
+            mensagem = AudioProcessor.processar_audio_url(audio_url)
 
-            if not mensagem:
-                logger.error("Falha ao transcrever áudio")
-                return jsonify({"status": "erro", "message": "Erro ao processar áudio"}), 500
+            if not mensagem or not mensagem.strip():
+                logger.error("Falha ao transcrever áudio ou áudio vazio")
+                return jsonify({"status": "erro", "message": "Não consegui entender o áudio. Tente novamente."}), 500
 
             logger.info(f"📝 Áudio transcrito: {mensagem}")
         else:
