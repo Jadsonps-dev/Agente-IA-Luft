@@ -48,14 +48,14 @@ def analisar_pergunta_com_ia(mensagem_usuario):
             "type": "function",
             "function": {
                 "name": "consultar_operacoes_wms",
-                "description": "Consulta operações no WMS baseado na documentação da API",
+                "description": "Consulta operações no WMS baseado na documentação completa da API",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "tipo_consulta": {
                             "type": "string",
                             "enum": ["pedidos", "pecas", "nota_fiscal", "nenhuma"],
-                            "description": "Tipo de consulta: 'pedidos' para contar NFs únicas, 'pecas' para somar quantidade de produtos, 'nota_fiscal' para buscar uma NF específica"
+                            "description": "Tipo: 'pedidos' = contar NOTA_FISCAL únicos | 'pecas' = somar QTDE | 'nota_fiscal' = buscar NF específica"
                         },
                         "periodo": {
                             "type": "string",
@@ -65,7 +65,17 @@ def analisar_pergunta_com_ia(mensagem_usuario):
                         "status_filtro": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Status para filtrar: EXPEDIDO, IMPORTADO, FATURADO, PROCESSADO, CANCELADO, AG. SEPARAÇÃO, ENVIADO PARA FATURAMENTO"
+                            "description": "Lista de status para filtrar. Valores possíveis: EXPEDIDO, IMPORTADO, FATURADO, PROCESSADO, CANCELADO, AG. SEPARAÇÃO, ENVIADO PARA FATURAMENTO"
+                        },
+                        "coluna_data": {
+                            "type": "string",
+                            "enum": ["PESADO_EM", "IMPORTADO_EM"],
+                            "description": "IMPORTANTE: Use PESADO_EM para status EXPEDIDO. Use IMPORTADO_EM para todos os outros status (IMPORTADO, FATURADO, CANCELADO, etc)"
+                        },
+                        "tipo_cliente": {
+                            "type": "string",
+                            "enum": ["B2B", "B2C", "TODOS"],
+                            "description": "Filtro de tipo de cliente: B2B, B2C ou TODOS"
                         },
                         "numero_nf": {
                             "type": "string",
@@ -77,21 +87,28 @@ def analisar_pergunta_com_ia(mensagem_usuario):
             }
         }]
         
-        prompt = f"""Você é um analisador de consultas para o sistema WMS da Luft Solutions.
+        prompt = f"""Você é um analisador especializado em consultas WMS da Luft Solutions.
 
-DOCUMENTAÇÃO DA API WMS:
+DOCUMENTAÇÃO COMPLETA DA API:
 {json.dumps(API_DOCS, indent=2, ensure_ascii=False)}
+
+REGRAS CRÍTICAS DE FILTRO DE DATA:
+- Se o status for EXPEDIDO → usar coluna PESADO_EM (data de saída)
+- Se o status for IMPORTADO, FATURADO, CANCELADO, etc → usar coluna IMPORTADO_EM (data de entrada)
+- Se perguntarem sobre "em fluxo" → usar coluna IMPORTADO_EM
 
 PERGUNTA DO USUÁRIO:
 "{mensagem_usuario}"
 
-Analise a pergunta e determine:
-1. É uma consulta operacional (pedidos/peças) ou busca de nota fiscal específica?
-2. Qual período de tempo? (hoje, ontem, semana, mês)
-3. Quais status filtrar? (use os valores exatos da documentação)
-4. Se for busca de NF, qual o número?
+Analise cuidadosamente e determine:
+1. Tipo de consulta (pedidos/peças/nota_fiscal)?
+2. Período (hoje/ontem/semana/mês)?
+3. Status para filtrar (EXPEDIDO, IMPORTADO, etc)?
+4. Qual coluna de data usar (PESADO_EM ou IMPORTADO_EM)?
+5. Filtro B2B/B2C?
+6. Número da NF (se aplicável)?
 
-Use a função consultar_operacoes_wms para retornar as instruções."""
+Use a função consultar_operacoes_wms com TODOS os parâmetros corretos."""
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -223,12 +240,20 @@ def processar_periodo(periodo):
     return data_inicio, data_fim
 
 
-def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta='pedidos'):
+def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta='pedidos', coluna_data='IMPORTADO_EM', tipo_cliente='TODOS'):
     """
-    Consulta operações via API WMS e retorna estatísticas.
-    status_filtro pode ser string única ou lista de strings.
+    Consulta operações via API WMS com suporte a filtros avançados.
+    
+    Args:
+        data_inicio: Data inicial (DD/MM/YYYY)
+        data_fim: Data final (DD/MM/YYYY)
+        status_filtro: String ou lista de status para filtrar
+        tipo_consulta: 'pedidos' (conta NFs) ou 'pecas' (soma quantidade)
+        coluna_data: 'PESADO_EM' (para expedidos) ou 'IMPORTADO_EM' (para outros)
+        tipo_cliente: 'B2B', 'B2C' ou 'TODOS'
     """
-    logger.info(f"Consultando operações de {data_inicio} a {data_fim}, status: {status_filtro}, tipo: {tipo_consulta}")
+    logger.info(f"Consultando operações de {data_inicio} a {data_fim}")
+    logger.info(f"  Status: {status_filtro} | Tipo: {tipo_consulta} | Coluna Data: {coluna_data} | Cliente: {tipo_cliente}")
     
     for id_depositante in ID_DEPOSITANTES:
         estrutura = None
@@ -256,22 +281,30 @@ def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta
             
             for line in lines:
                 columns = line.get('columns', [])
-                if len(columns) >= 6:
+                if len(columns) >= 7:
                     nota_fiscal = columns[0]
+                    classificacao = columns[1] if len(columns) > 1 else ''
                     status_nf = columns[2]
-                    qtde_produto = columns[3] if len(columns) > 3 else 0
+                    importado_em = columns[3]
+                    pesado_em = columns[4]
+                    qtde = columns[5] if len(columns) > 5 else 0
                     
+                    filtro_status_ok = True
                     if isinstance(status_filtro, list):
-                        status_match = status_nf in status_filtro if status_filtro else True
+                        filtro_status_ok = status_nf in status_filtro if status_filtro else True
                     elif status_filtro:
-                        status_match = status_nf == status_filtro
-                    else:
-                        status_match = True
+                        filtro_status_ok = status_nf == status_filtro
                     
-                    if status_match:
+                    filtro_cliente_ok = True
+                    if tipo_cliente == 'B2C':
+                        filtro_cliente_ok = classificacao.startswith('INSIDER_B2C') if classificacao else False
+                    elif tipo_cliente == 'B2B':
+                        filtro_cliente_ok = classificacao.startswith('INSIDER_B2B') if classificacao else False
+                    
+                    if filtro_status_ok and filtro_cliente_ok:
                         pedidos_unicos.add(nota_fiscal)
                         try:
-                            total_pecas += float(qtde_produto) if qtde_produto else 0
+                            total_pecas += float(qtde) if qtde else 0
                         except (ValueError, TypeError):
                             pass
             
@@ -281,6 +314,7 @@ def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta
                     'quantidade_pedidos': len(pedidos_unicos),
                     'quantidade_pecas': int(total_pecas),
                     'status_filtro': status_filtro,
+                    'tipo_cliente': tipo_cliente,
                     'data_inicio': data_inicio,
                     'data_fim': data_fim,
                     'id_depositante': id_depositante
@@ -300,6 +334,7 @@ def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta
         'quantidade_pedidos': 0,
         'quantidade_pecas': 0,
         'status_filtro': status_filtro,
+        'tipo_cliente': tipo_cliente,
         'data_inicio': data_inicio,
         'data_fim': data_fim
     }
@@ -385,24 +420,36 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
             data_inicio, data_fim = processar_periodo(periodo)
             status_filtro = analise_ia.get('status_filtro')
             tipo_consulta = analise_ia['tipo_consulta']
+            coluna_data = analise_ia.get('coluna_data', 'IMPORTADO_EM')
+            tipo_cliente = analise_ia.get('tipo_cliente', 'TODOS')
             
-            dados_op = consultar_operacoes(data_inicio, data_fim, status_filtro, tipo_consulta)
+            dados_op = consultar_operacoes(
+                data_inicio, 
+                data_fim, 
+                status_filtro, 
+                tipo_consulta,
+                coluna_data,
+                tipo_cliente
+            )
             
             if dados_op and dados_op.get('encontrado'):
                 status_texto = ', '.join(status_filtro) if isinstance(status_filtro, list) else (status_filtro or "todos")
+                cliente_texto = f" ({tipo_cliente})" if tipo_cliente != 'TODOS' else ""
                 
                 if tipo_consulta == 'pecas':
                     contexto = f"""
-RESUMO DE OPERAÇÕES - PEÇAS:
+RESUMO DE OPERAÇÕES - PEÇAS{cliente_texto}:
 Período: {data_inicio} até {data_fim}
 Status: {status_texto}
+Coluna de Data: {coluna_data}
 Total de peças: {dados_op['quantidade_pecas']:,}
                     """
                 else:
                     contexto = f"""
-RESUMO DE OPERAÇÕES - PEDIDOS:
+RESUMO DE OPERAÇÕES - PEDIDOS{cliente_texto}:
 Período: {data_inicio} até {data_fim}
 Status: {status_texto}
+Coluna de Data: {coluna_data}
 Total de pedidos: {dados_op['quantidade_pedidos']}
                     """
         
