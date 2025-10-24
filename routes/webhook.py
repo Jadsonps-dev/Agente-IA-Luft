@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import time
 import threading
 from config.globals import redis_client
+from services.audio_processor import AudioProcessor # Importei o AudioProcessor
 
 # Carregar variáveis de ambiente explicitamente
 load_dotenv()
@@ -23,13 +24,13 @@ evolution = EvolutionAPI()
 @webhook_bp.route('/webhook', methods=['POST'])
 def receber_webhook():
     data = request.json
-    
+
     logger.info(f"Webhook recebido: {datetime.now().isoformat()}")
-    
+
     try:
         event = data.get("event", "")
         instance_name = data.get("instance", "")
-        
+
         # ✅ Usar a API Key diretamente do ambiente (não vem no webhook)
         api_key = os.getenv("AUTHENTICATION_API_KEY")  # Alterado para usar a variável correta
         if not api_key:
@@ -39,30 +40,55 @@ def receber_webhook():
         if event != "messages.upsert":
             logger.info(f"Evento ignorado: {event}")
             return jsonify({"status": "ignorado: evento não é messages.upsert"}), 200
-        
+
         message_data = data.get("data", {})
         key_data = message_data.get("key", {})
         sender = key_data.get("remoteJid", "")
         from_me = key_data.get("fromMe", False)
-        
+
         logger.info(f"DEBUG - fromMe: {from_me}, sender: {sender}, instance: {instance_name}")
-        
+
         if sender and sender.endswith("@g.us"):
             logger.info(f"Ignorado grupo: {sender}")
             return jsonify({"status": "ignorado: grupo"}), 200
 
-        message_content = message_data.get("message", {})
-        mensagem = ""
-        
-        if "conversation" in message_content:
-            mensagem = message_content["conversation"]
-        elif "extendedTextMessage" in message_content:
-            mensagem = message_content["extendedTextMessage"]["text"]
-        elif "imageMessage" in message_content:
-            mensagem = message_content["imageMessage"].get("caption", "")
-        elif "videoMessage" in message_content:
-            mensagem = message_content["videoMessage"].get("caption", "")
-        
+        # Verificar se é mensagem de áudio
+        audio_message = message_data.get('message', {}).get('audioMessage')
+
+        mensagem = "" # Inicializa a variável mensagem
+
+        if audio_message:
+            # Processar mensagem de áudio
+            logger.info("🎤 Mensagem de áudio detectada")
+
+            # Extrair base64 do áudio
+            audio_base64 = audio_message.get('base64')
+
+            if not audio_base64:
+                logger.warning("Áudio sem base64")
+                return jsonify({"status": "erro", "message": "Áudio inválido"}), 400
+
+            # Transcrever áudio
+            mensagem = AudioProcessor.processar_audio(audio_base64) # Utiliza a função processar_audio
+
+            if not mensagem:
+                logger.error("Falha ao transcrever áudio")
+                return jsonify({"status": "erro", "message": "Erro ao processar áudio"}), 500
+
+            logger.info(f"📝 Áudio transcrito: {mensagem}")
+        else:
+            # Processar mensagem de texto normal
+            message_content = message_data.get("message", {})
+            if "conversation" in message_content:
+                mensagem = message_content["conversation"]
+            elif "extendedTextMessage" in message_content:
+                mensagem = message_content["extendedTextMessage"]["text"]
+            elif "imageMessage" in message_content:
+                mensagem = message_content["imageMessage"].get("caption", "")
+            elif "videoMessage" in message_content:
+                mensagem = message_content["videoMessage"].get("caption", "")
+
+
         if not mensagem.strip():
             logger.info(f"Ignorada mensagem vazia: {sender}")
             return jsonify({"status": "ignorado: mensagem vazia"}), 200
@@ -82,21 +108,21 @@ def receber_webhook():
         if not api_key:
             logger.error("❌ API Key da Evolution não encontrada")
             return jsonify({"status": "erro", "message": "API Key ausente"}), 500
-        
+
         logger.info(f"Processando mensagem de {sender_number}: {mensagem}")
-        
+
         timestamp_atual = time.time()
         redis_key = f"last_message:{sender_number}"
         redis_client.set(redis_key, {"timestamp": timestamp_atual, "message": mensagem}, ex=20)
-        
+
         def processar_com_delay():
             time.sleep(15)
-            
+
             ultima_mensagem = redis_client.get(redis_key)
             if not ultima_mensagem or ultima_mensagem.get("timestamp") != timestamp_atual:
                 logger.info(f"Nova mensagem detectada de {sender_number}, cancelando processamento desta")
                 return
-            
+
             try:
                 resposta = perguntar_ia(mensagem, instance_name, sender_number)
                 logger.info(f"Resposta da IA: {resposta}")
@@ -108,7 +134,7 @@ def receber_webhook():
                     sender_number=sender_number
                 )
                 logger.info(f"Mensagem enviada com sucesso: {response_data}")
-                
+
             except Exception as e:
                 logger.error(f"Erro ao processar mensagem com IA: {str(e)}")
                 evolution.enviar_mensagem(
@@ -117,10 +143,10 @@ def receber_webhook():
                     instance_key=api_key,
                     sender_number=sender_number
                 )
-        
+
         thread = threading.Thread(target=processar_com_delay, daemon=True)
         thread.start()
-            
+
         return jsonify({"status": "processado"}), 200
 
     except Exception as e:

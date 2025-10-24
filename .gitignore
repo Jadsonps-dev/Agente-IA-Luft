@@ -1,2 +1,9 @@
+
+# Arquivos de áudio temporários
+temp_audio/
+*.ogg
+*.mp3
+*.wav
+
 environment
 __pycache__
