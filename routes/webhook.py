@@ -60,21 +60,20 @@ def receber_webhook():
             # Processar mensagem de áudio
             logger.info("🎤 Mensagem de áudio detectada")
             
-            # WhatsApp envia a URL do áudio, não o base64 diretamente
-            audio_url = audio_message.get('url')
+            # Extrair ID da mensagem para baixar via Evolution API
+            message_id = key_data.get('id')
             
             # Log para debug
             logger.info(f"DEBUG - Estrutura da mensagem: {list(message_data.keys())}")
             logger.info(f"DEBUG - audioMessage keys: {list(audio_message.keys())}")
-            logger.info(f"DEBUG - URL do áudio: {audio_url}")
+            logger.info(f"DEBUG - Message ID: {message_id}")
             
-            if not audio_url:
-                logger.warning("Áudio sem URL")
-                logger.warning(f"DEBUG - audioMessage completo: {audio_message}")
+            if not message_id:
+                logger.warning("Message ID não encontrado")
                 return jsonify({"status": "erro", "message": "Áudio inválido"}), 400
 
-            # Transcrever áudio usando a URL
-            mensagem = AudioProcessor.processar_audio_url(audio_url)
+            # Transcrever áudio usando Evolution API
+            mensagem = AudioProcessor.processar_audio_evolution(message_id, instance_name, api_key)
 
             if not mensagem or not mensagem.strip():
                 logger.error("Falha ao transcrever áudio ou áudio vazio")
