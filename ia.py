@@ -119,6 +119,20 @@ def analisar_pergunta_com_ia(mensagem_usuario):
                             "description":
                             "Filtro de tipo de cliente: B2B, B2C ou TODOS"
                         },
+                        "empresa": {
+                            "type":
+                            "string",
+                            "enum": ["Insider", "Alpargatas", "todas"],
+                            "description":
+                            "Nome da empresa mencionada pelo usuário: Insider, Alpargatas ou todas se não especificou"
+                        },
+                        "id_depositante": {
+                            "type":
+                            "string",
+                            "enum": ["2361178", "538607"],
+                            "description":
+                            "ID do depositante: 2361178=Insider | 538607=Alpargatas. Se usuário mencionar Insider use 2361178, se mencionar Alpargatas use 538607"
+                        },
                         "numero_nf": {
                             "type":
                             "string",

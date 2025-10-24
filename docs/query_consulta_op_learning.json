@@ -249,6 +249,55 @@
     }
   },
   
+  "empresas_depositantes": {
+    "descricao": "Mapeamento de empresas para ID de depositante",
+    "importante": "Quando o usuário mencionar o nome de uma empresa, use o id_depositante correspondente",
+    "mapeamento": {
+      "Insider": {
+        "id_depositante": "2361178",
+        "nomes_possiveis": ["insider", "insider store", "da insider", "do insider"],
+        "prioridade": 1
+      },
+      "Alpargatas": {
+        "id_depositante": "538607",
+        "nomes_possiveis": ["alpargatas", "alpargata", "da alpargatas", "das alpargatas"],
+        "prioridade": 2
+      }
+    },
+    "regras": [
+      "Se usuário mencionar 'Insider' → usar id_depositante=2361178",
+      "Se usuário mencionar 'Alpargatas' → usar id_depositante=538607",
+      "Se NÃO especificar empresa → buscar em 2361178 primeiro, depois 538607",
+      "Se especificar empresa → buscar APENAS naquela empresa"
+    ],
+    "exemplos": [
+      {
+        "pergunta": "Quantos pedidos da Insider foram expedidos hoje?",
+        "empresa_identificada": "Insider",
+        "id_depositante": "2361178",
+        "acao": "Buscar APENAS no depositante 2361178"
+      },
+      {
+        "pergunta": "Pedidos Alpargatas em fluxo",
+        "empresa_identificada": "Alpargatas",
+        "id_depositante": "538607",
+        "acao": "Buscar APENAS no depositante 538607"
+      },
+      {
+        "pergunta": "Quantos pedidos foram expedidos hoje?",
+        "empresa_identificada": null,
+        "id_depositante": null,
+        "acao": "Buscar em 2361178 primeiro, se não encontrar buscar em 538607"
+      },
+      {
+        "pergunta": "Fluxo de pedidos insider essa semana",
+        "empresa_identificada": "Insider",
+        "id_depositante": "2361178",
+        "acao": "Buscar APENAS no depositante 2361178"
+      }
+    ]
+  },
+  
   "exemplos_aprendizado_completos": [
     {
       "id": 1,
@@ -356,6 +405,46 @@
         "coluna_data": "IMPORTADO_EM",
         "periodo": "hoje",
         "tipo_cliente": null
+      }
+    },
+    {
+      "id": 7,
+      "pergunta_usuario": "Quantos pedidos da Insider foram expedidos hoje?",
+      "analise_passo_a_passo": {
+        "passo_1": "Identificar tipo: 'pedidos' → COUNT(NOTA_FISCAL)",
+        "passo_2": "Identificar empresa: 'Insider' → id_depositante=2361178",
+        "passo_3": "Identificar status: 'expedidos' → STATUS='EXPEDIDO'",
+        "passo_4": "Escolher coluna data: STATUS=EXPEDIDO → PESADO_EM",
+        "passo_5": "Identificar período: 'hoje' → data atual"
+      },
+      "resultado_analise": {
+        "tipo_consulta": "pedidos",
+        "status_filtro": ["EXPEDIDO"],
+        "coluna_data": "PESADO_EM",
+        "periodo": "hoje",
+        "tipo_cliente": null,
+        "empresa": "Insider",
+        "id_depositante": "2361178"
+      }
+    },
+    {
+      "id": 8,
+      "pergunta_usuario": "Peças Alpargatas em fluxo essa semana",
+      "analise_passo_a_passo": {
+        "passo_1": "Identificar tipo: 'Peças' → SUM(QTDE)",
+        "passo_2": "Identificar empresa: 'Alpargatas' → id_depositante=538607",
+        "passo_3": "Identificar status: 'em fluxo' → STATUS=IMPORTADO",
+        "passo_4": "Escolher coluna data: STATUS=IMPORTADO → IMPORTADO_EM",
+        "passo_5": "Identificar período: 'essa semana' → últimos 7 dias"
+      },
+      "resultado_analise": {
+        "tipo_consulta": "pecas",
+        "status_filtro": ["IMPORTADO"],
+        "coluna_data": "IMPORTADO_EM",
+        "periodo": "semana",
+        "tipo_cliente": null,
+        "empresa": "Alpargatas",
+        "id_depositante": "538607"
       }
     }
   ],

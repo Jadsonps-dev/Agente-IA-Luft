@@ -162,14 +162,44 @@
     }
   },
   "depositantes": {
-    "2361178": {
-      "nome": "Depositante Principal",
-      "prioridade": 1
+    "descricao": "Mapeamento de empresas para IDs de depositante",
+    "como_usar": "Quando o usuário mencionar o nome de uma empresa, use o id_depositante correspondente",
+    "empresas": {
+      "2361178": {
+        "nome": "Insider",
+        "nome_completo": "Insider Store",
+        "aliases": ["insider", "insider store"],
+        "prioridade": 1,
+        "descricao": "Empresa principal - buscar primeiro"
+      },
+      "538607": {
+        "nome": "Alpargatas",
+        "nome_completo": "Alpargatas",
+        "aliases": ["alpargatas", "alpargata"],
+        "prioridade": 2,
+        "descricao": "Empresa secundária - buscar se não encontrar na principal"
+      }
     },
-    "538607": {
-      "nome": "Depositante Secundário",
-      "prioridade": 2
-    }
+    "regras_busca": [
+      "1. Se usuário mencionar 'Insider', usar id_depositante=2361178",
+      "2. Se usuário mencionar 'Alpargatas', usar id_depositante=538607",
+      "3. Se não especificar empresa, buscar em 2361178 primeiro, depois 538607",
+      "4. Se especificar empresa, buscar APENAS naquela empresa"
+    ],
+    "exemplos": [
+      {
+        "pergunta": "Quantos pedidos Insider foram expedidos hoje?",
+        "acao": "Usar id_depositante=2361178"
+      },
+      {
+        "pergunta": "Pedidos Alpargatas em fluxo",
+        "acao": "Usar id_depositante=538607"
+      },
+      {
+        "pergunta": "Quantos pedidos foram expedidos hoje?",
+        "acao": "Buscar em 2361178 primeiro, se não encontrar buscar em 538607"
+      }
+    ]
   },
   "instrucoes_ia": {
     "como_analisar_pergunta": [
