@@ -1,0 +1,56 @@
+private async transcribeAudio(audioUrl: string, instanceName?: string, messageData?: any): Promise<string> {
+    try {
+      console.log(`🎤 ===== INICIANDO TRANSCRIÇÃO DE ÁUDIO =====`);
+      console.log(`🎤 URL do áudio: ${audioUrl}`);
+
+      if (!audioUrl || audioUrl.trim() === '') {
+        console.error('❌ URL do áudio está vazia');
+        return "Desculpa, não consegui processar o áudio. Pode tentar enviar novamente?";
+      }
+
+          const base64 = await this.evolutionAPI.getBase64FromMediaMessage(instanceName, messageData);
+
+          if (base64) {
+            console.log(`🎤 ✅ Base64 obtido via Evolution API: ${base64.length} caracteres`);
+            return await this.transcribeAudioFromBase64(base64);
+          } else {
+            console.error('❌ Falha ao obter base64 via Evolution API');
+            return "Desculpa, não consegui processar o áudio. Pode tentar enviar novamente ou escrever sua mensagem?";
+          }
+        } catch (apiError) {
+          console.error('❌ Erro ao usar Evolution API para base64:', apiError);
+          return "Desculpa, tive um problema ao processar o áudio. Pode tentar enviar novamente ou escrever sua mensagem?";
+        }
+      }
+
+      // Se não for criptografada, tentar download direto
+      if (!audioUrl.includes('.enc?')) {
+        console.log(`🎤 📥 Baixando áudio da URL...`);
+        const audioBuffer = await this.downloadAudio(audioUrl);
+
+        if (!audioBuffer) {
+          console.error('❌ Falha ao baixar o áudio');
+          return "Desculpa, não consegui baixar o áudio. Pode tentar enviar novamente?";
+        }
+
+        console.log(`🎤 ✅ Áudio baixado: ${audioBuffer.length} bytes`);
+
+        // Salvar como arquivo .ogg temporário
+        console.log(`🎤 💾 Salvando áudio como arquivo .ogg...`);
+        const audioFilePath = await this.saveAudioAsOggFile(audioBuffer);
+
+        if (!audioFilePath) {
+          console.error('❌ Falha ao salvar arquivo de áudio');
+          return "Desculpa, não consegui processar o áudio. Pode tentar enviar novamente?";
+        }
+
+        console.log(`🎤 ✅ Arquivo salvo: ${audioFilePath}`);
+
+        // Transcrever usando arquivo
+        const transcription = await this.transcribeWithWhisperFile(audioFilePath);
+
+        // Limpar arquivo temporário
+        await this.cleanupTempFile(audioFilePath);
+
+        return transcription;
+      }

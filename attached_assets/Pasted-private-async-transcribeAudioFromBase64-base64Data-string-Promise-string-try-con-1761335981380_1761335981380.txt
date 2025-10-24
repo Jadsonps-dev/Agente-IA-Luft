@@ -1,0 +1,65 @@
+private async transcribeAudioFromBase64(base64Data: string): Promise<string> {
+    try {
+      console.log(`🎤 ===== INICIANDO TRANSCRIÇÃO DE ÁUDIO BASE64 =====`);
+      console.log(`🎤 Base64 length original: ${base64Data.length}`);
+
+      if (!base64Data || base64Data.trim() === '') {
+        console.error('❌ Dados base64 estão vazios');
+        return "Desculpa, não consegui processar o áudio. Pode tentar enviar novamente?";
+      }
+
+      // Limpar base64 (remover quebras de linha, espaços, etc.)
+      const cleanedBase64 = this.cleanBase64(base64Data);
+      console.log(`🎤 Base64 length limpo: ${cleanedBase64.length}`);
+
+      // Validar base64
+      if (!this.isValidBase64(cleanedBase64)) {
+        console.error('❌ Base64 inválido após limpeza');
+        return "Desculpa, o áudio chegou corrompido. Pode tentar enviar novamente?";
+      }
+
+      // Converter base64 para buffer
+      console.log(`🎤 🔄 Convertendo base64 para buffer...`);
+      const audioBuffer = Buffer.from(cleanedBase64, 'base64');
+
+      if (!audioBuffer || audioBuffer.length === 0) {
+        console.error('❌ Falha ao converter base64 para buffer');
+        return "Desculpa, não consegui processar o áudio. Pode tentar enviar novamente?";
+      }
+
+      console.log(`🎤 ✅ Buffer criado: ${audioBuffer.length} bytes`);
+
+      // Verificar se os primeiros bytes são de um arquivo OGG válido
+      const oggSignature = audioBuffer.subarray(0, 4);
+      const isValidOgg = oggSignature.toString() === 'OggS';
+      console.log(`🎤 🔍 Verificação OGG: ${isValidOgg ? 'VÁLIDO' : 'INVÁLIDO'}`);
+      console.log(`🎤 🔍 Primeiros 4 bytes: ${oggSignature.toString('hex')}`);
+
+      if (!isValidOgg) {
+        console.warn('⚠️ Arquivo não parece ser um OGG válido, mas continuando...');
+      }
+
+      // Salvar como arquivo .ogg temporário
+      console.log(`🎤 💾 Salvando áudio como arquivo .ogg...`);
+      const audioFilePath = await this.saveAudioAsOggFile(audioBuffer);
+
+      if (!audioFilePath) {
+        console.error('❌ Falha ao salvar arquivo de áudio');
+        return "Desculpa, não consegui processar o áudio. Pode tentar enviar novamente?";
+      }
+
+      console.log(`🎤 ✅ Arquivo salvo: ${audioFilePath}`);
+
+      // Enviar arquivo para transcrição OpenAI Whisper
+      console.log(`🎤 🔄 Enviando arquivo para OpenAI Whisper API...`);
+      const transcription = await this.transcribeWithWhisperFile(audioFilePath);
+
+      // Limpar arquivo temporário
+      await this.cleanupTempFile(audioFilePath);
+
+      return transcription;
+    } catch (error: any) {
+      console.error('❌ Erro geral na transcrição base64:', error);
+      return "Desculpa, tive um problema ao processar o áudio. Pode tentar enviar novamente ou escrever sua mensagem?";
+    }
+  }
