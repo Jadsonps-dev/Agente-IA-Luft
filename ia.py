@@ -24,6 +24,13 @@ with open('docs/api_wms_documentation.json', 'r', encoding='utf-8') as f:
 with open('docs/prompts_sistema.json', 'r', encoding='utf-8') as f:
     PROMPTS = json.load(f)
 
+# Carregar documentação de aprendizado para cada função
+with open('docs/query_nf_learning.json', 'r', encoding='utf-8') as f:
+    LEARNING_NF = json.load(f)
+
+with open('docs/query_consulta_op_learning.json', 'r', encoding='utf-8') as f:
+    LEARNING_OP = json.load(f)
+
 MAPEAMENTO_STATUS = {
     'expedido':
     'EXPEDIDO',
@@ -124,9 +131,17 @@ def analisar_pergunta_com_ia(mensagem_usuario):
             }
         }]
 
+        # Combinar documentação API com aprendizado específico
+        documentacao_completa = {
+            "api_wms": API_DOCS,
+            "aprendizado_query_nf": LEARNING_NF,
+            "aprendizado_query_consulta_op": LEARNING_OP,
+            "instrucoes_aprendizado": PROMPTS['instrucoes_aprendizado']
+        }
+        
         prompt_template = PROMPTS['prompts']['analisador_consultas']['template']
         prompt = prompt_template.format(
-            documentacao_api=json.dumps(API_DOCS, indent=2, ensure_ascii=False),
+            documentacao_api=json.dumps(documentacao_completa, indent=2, ensure_ascii=False),
             pergunta_usuario=mensagem_usuario
         )
 

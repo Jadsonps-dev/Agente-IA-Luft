@@ -1,0 +1,140 @@
+{
+  "funcao": "query_nf",
+  "versao": "1.0",
+  "descricao": "Documentação completa para consultas de Nota Fiscal individual",
+  
+  "objetivo": "Ensinar o agente a identificar quando o usuário quer consultar uma nota fiscal específica e extrair o número correto",
+  
+  "quando_usar": {
+    "descricao": "Use esta função quando o usuário mencionar um número de nota fiscal ou pedido específico",
+    "exemplos_quando_usar": [
+      "Qual o status da nota 12345?",
+      "Cadê meu pedido 67890?",
+      "Onde está a NF 11111?",
+      "Rastreio da nota fiscal 22222",
+      "Informações do pedido 33333"
+    ],
+    "nao_usar_quando": [
+      "Quantos pedidos foram expedidos?",
+      "Total de notas do dia",
+      "Pedidos B2C da semana"
+    ]
+  },
+  
+  "extrair_numero_nf": {
+    "descricao": "Como extrair o número da nota fiscal da pergunta do usuário",
+    "regras": [
+      "Procure por sequências numéricas na mensagem",
+      "O número geralmente tem 5 a 10 dígitos",
+      "Pode vir após palavras como: nota, NF, pedido, número",
+      "Ignore números que são claramente datas ou horas"
+    ],
+    "exemplos": [
+      {
+        "pergunta": "Qual o status da nota 12345?",
+        "numero_extraido": "12345",
+        "explicacao": "Número vem após a palavra 'nota'"
+      },
+      {
+        "pergunta": "Cadê meu pedido número 67890?",
+        "numero_extraido": "67890",
+        "explicacao": "Número vem após 'pedido número'"
+      },
+      {
+        "pergunta": "NF 11111",
+        "numero_extraido": "11111",
+        "explicacao": "Número vem após a sigla 'NF'"
+      },
+      {
+        "pergunta": "Rastreio 22222",
+        "numero_extraido": "22222",
+        "explicacao": "Número único na mensagem relacionado a rastreio"
+      }
+    ]
+  },
+  
+  "informacoes_retornadas": {
+    "descricao": "Dados que a API retorna para uma nota fiscal",
+    "campos": {
+      "numero_nf": "Número da nota fiscal consultada",
+      "status": "Status atual da nota (FATURADO, EXPEDIDO, IMPORTADO, etc)",
+      "transportadora": "Nome da empresa transportadora",
+      "codigo_rastreio": "Código para rastreamento da entrega",
+      "encontrado": "true se a nota existe, false se não foi encontrada"
+    }
+  },
+  
+  "respostas_formatadas": {
+    "descricao": "Como formatar as respostas ao usuário",
+    "regras_formatacao": [
+      "Use emojis para destacar informações",
+      "NUNCA use markdown ou asteriscos",
+      "Seja breve e direto",
+      "Use quebras de linha para organizar"
+    ],
+    "emojis_usar": {
+      "nota_encontrada": "✅",
+      "transportadora": "🚚",
+      "rastreio": "📦",
+      "status": "📊",
+      "nao_encontrado": "❌"
+    },
+    "exemplos_resposta": [
+      {
+        "situacao": "Nota encontrada e expedida",
+        "resposta": "✅ Nota Fiscal 12345\n\n📊 Status: EXPEDIDO\n🚚 Transportadora: Jadlog\n📦 Rastreio: JD123456789BR\n\nSeu pedido já foi despachado!"
+      },
+      {
+        "situacao": "Nota em separação",
+        "resposta": "✅ Nota Fiscal 67890\n\n📊 Status: SEPARACAO\n\nSeu pedido está sendo preparado para envio. Em breve será despachado!"
+      },
+      {
+        "situacao": "Nota não encontrada",
+        "resposta": "❌ Nota Fiscal 11111 não foi encontrada no sistema.\n\nPor favor, verifique se o número está correto ou se o pedido já foi processado."
+      }
+    ]
+  },
+  
+  "exemplos_aprendizado_completos": [
+    {
+      "pergunta_usuario": "Qual o status da nota 45678?",
+      "analise_ia": {
+        "tipo_consulta": "nota_fiscal",
+        "numero_nf": "45678",
+        "explicacao_decisao": "Usuário mencionou 'nota' seguido de um número específico"
+      },
+      "acao": "Chamar API query_nf com numero_nf=45678"
+    },
+    {
+      "pergunta_usuario": "Cadê meu pedido 99999?",
+      "analise_ia": {
+        "tipo_consulta": "nota_fiscal",
+        "numero_nf": "99999",
+        "explicacao_decisao": "Usuário quer saber sobre um pedido específico pelo número"
+      },
+      "acao": "Chamar API query_nf com numero_nf=99999"
+    },
+    {
+      "pergunta_usuario": "Rastreio da NF 88888",
+      "analise_ia": {
+        "tipo_consulta": "nota_fiscal",
+        "numero_nf": "88888",
+        "explicacao_decisao": "Usuário quer rastreio de uma nota fiscal específica"
+      },
+      "acao": "Chamar API query_nf com numero_nf=88888"
+    }
+  ],
+  
+  "erros_comuns_evitar": [
+    {
+      "erro": "Confundir data com número de NF",
+      "exemplo": "Pedidos de 25/10/2024",
+      "correcao": "25/10/2024 é uma data, não um número de nota fiscal. Use query_consulta_op"
+    },
+    {
+      "erro": "Tentar usar query_nf para múltiplas notas",
+      "exemplo": "Quantas notas foram expedidas?",
+      "correcao": "Esta é uma consulta agregada, use query_consulta_op"
+    }
+  ]
+}
