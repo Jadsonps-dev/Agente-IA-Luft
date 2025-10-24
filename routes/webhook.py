@@ -8,12 +8,10 @@ from dotenv import load_dotenv
 import time
 import threading
 from config.globals import redis_client
-from services.audio_processor import AudioProcessor # Importei o AudioProcessor
+from services.audio_processor import AudioProcessor 
 
-# Carregar variáveis de ambiente explicitamente
 load_dotenv()
 
-# Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
