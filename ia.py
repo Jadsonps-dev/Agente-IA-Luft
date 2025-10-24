@@ -17,21 +17,17 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 ID_DEPOSITANTES = [2361178, 538607]
 
-# Carregar documentação da API e prompts do sistema
 with open('docs/api_wms_documentation.json', 'r', encoding='utf-8') as f:
     API_DOCS = json.load(f)
 
 with open('docs/prompts_sistema.json', 'r', encoding='utf-8') as f:
     PROMPTS = json.load(f)
 
-# Carregar documentação de aprendizado para cada função
 with open('docs/query_nf_learning.json', 'r', encoding='utf-8') as f:
     LEARNING_NF = json.load(f)
 
 with open('docs/query_consulta_op_learning.json', 'r', encoding='utf-8') as f:
     LEARNING_OP = json.load(f)
-
-# Mapeamentos removidos - o agente aprende através dos documentos JSON
 
 
 def analisar_pergunta_com_ia(mensagem_usuario):
@@ -116,14 +112,13 @@ def analisar_pergunta_com_ia(mensagem_usuario):
             }
         }]
 
-        # Combinar documentação API com aprendizado específico
         documentacao_completa = {
             "api_wms": API_DOCS,
             "aprendizado_query_nf": LEARNING_NF,
             "aprendizado_query_consulta_op": LEARNING_OP,
             "instrucoes_aprendizado": PROMPTS['instrucoes_aprendizado']
         }
-        
+
         prompt_template = PROMPTS['prompts']['analisador_consultas']['template']
         prompt = prompt_template.format(
             documentacao_api=json.dumps(documentacao_completa, indent=2, ensure_ascii=False),
@@ -186,10 +181,6 @@ def extrair_data_mensagem(mensagem):
 
     return data_inicio, data_fim
 
-
-# Funções de detecção removidas - o agente aprende através da IA e documentação
-
-
 def processar_periodo(periodo):
     """
     Converte o período em datas DD/MM/YYYY.
@@ -212,7 +203,6 @@ def processar_periodo(periodo):
 
     return data_inicio, data_fim
 
-
 def consultar_operacoes(data_inicio,
                         data_fim,
                         status_filtro=None,
@@ -221,7 +211,7 @@ def consultar_operacoes(data_inicio,
                         tipo_cliente='TODOS'):
     """
     Consulta operações via API WMS com suporte a filtros avançados.
-    
+
     Args:
         data_inicio: Data inicial (DD/MM/YYYY)
         data_fim: Data final (DD/MM/YYYY)
@@ -438,19 +428,19 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
 
                 if tipo_consulta == 'pecas':
                     contexto = f"""
-RESUMO DE OPERAÇÕES - PEÇAS{cliente_texto}:
-Período: {data_inicio} até {data_fim}
-Status: {status_texto}
-Coluna de Data: {coluna_data}
-Total de peças: {dados_op['quantidade_pecas']:,}
+                        RESUMO DE OPERAÇÕES - PEÇAS{cliente_texto}:
+                        Período: {data_inicio} até {data_fim}
+                        Status: {status_texto}
+                        Coluna de Data: {coluna_data}
+                        Total de peças: {dados_op['quantidade_pecas']:,}
                     """
                 else:
                     contexto = f"""
-RESUMO DE OPERAÇÕES - PEDIDOS{cliente_texto}:
-Período: {data_inicio} até {data_fim}
-Status: {status_texto}
-Coluna de Data: {coluna_data}
-Total de pedidos: {dados_op['quantidade_pedidos']}
+                        RESUMO DE OPERAÇÕES - PEDIDOS{cliente_texto}:
+                        Período: {data_inicio} até {data_fim}
+                        Status: {status_texto}
+                        Coluna de Data: {coluna_data}
+                        Total de pedidos: {dados_op['quantidade_pedidos']}
                     """
 
         elif analise_ia and analise_ia.get('tipo_consulta') == 'nota_fiscal':
@@ -461,19 +451,19 @@ Total de pedidos: {dados_op['quantidade_pedidos']}
 
                 if dados_nf and dados_nf.get('encontrado'):
                     contexto = f"""
-INFORMAÇÕES DA NOTA FISCAL {dados_nf['numero_nf']}:
-- Status: {dados_nf['status']}
-- Transportadora: {dados_nf['transportadora']}
-- Código de Rastreio: {dados_nf['codigo_rastreio']}
+                        INFORMAÇÕES DA NOTA FISCAL {dados_nf['numero_nf']}:
+                        - Status: {dados_nf['status']}
+                        - Transportadora: {dados_nf['transportadora']}
+                        - Código de Rastreio: {dados_nf['codigo_rastreio']}
                     """
                 elif dados_nf and not dados_nf.get('encontrado'):
                     contexto = f"""
-A nota fiscal {numero_nf} não foi encontrada no sistema.
-Pode ser que o número esteja incorreto ou o pedido ainda não foi processado.
+                        A nota fiscal {numero_nf} não foi encontrada no sistema.
+                        Pode ser que o número esteja incorreto ou o pedido ainda não foi processado.
                     """
                 else:
                     contexto = """
-Houve um problema ao consultar o sistema. Por favor, tente novamente em alguns instantes.
+                        Houve um problema ao consultar o sistema. Por favor, tente novamente em alguns instantes.
                     """
 
         if not ja_interagiu and not contexto:

@@ -2,9 +2,9 @@
   "funcao": "query_consulta_op",
   "versao": "1.0",
   "descricao": "Documentação completa para consultas operacionais e analytics",
-  
+
   "objetivo": "Ensinar o agente a analisar perguntas sobre quantidade de pedidos, peças, status, períodos e tipos de cliente",
-  
+
   "identificacao_automatica": {
     "descricao": "Como identificar se a pergunta é uma consulta operacional (agregação) vs consulta de NF específica",
     "regras_principais": [
@@ -72,7 +72,7 @@
       }
     ]
   },
-  
+
   "colunas_disponiveis": {
     "NOTA_FISCAL": {
       "nome": "Nota Fiscal",
@@ -86,7 +86,7 @@
       ],
       "importante": "Cada nota fiscal = 1 pedido. Use para contagem de pedidos!"
     },
-    
+
     "CLASSIFICACAO_CODIGO": {
       "nome": "Classificação Código",
       "tipo": "Texto",
@@ -109,7 +109,7 @@
         }
       ]
     },
-    
+
     "STATUS": {
       "nome": "Status",
       "tipo": "Texto",
@@ -141,7 +141,7 @@
         }
       ]
     },
-    
+
     "IMPORTADO_EM": {
       "nome": "Importado Em",
       "tipo": "Data/Hora",
@@ -173,7 +173,7 @@
         }
       ]
     },
-    
+
     "PESADO_EM": {
       "nome": "Pesado Em",
       "tipo": "Data/Hora",
@@ -203,7 +203,7 @@
         }
       ]
     },
-    
+
     "QTDE": {
       "nome": "Quantidade",
       "tipo": "Número",
@@ -216,7 +216,7 @@
       ],
       "importante": "Use para somar peças/produtos, NÃO para contar pedidos!"
     },
-    
+
     "DEPOSITANTE": {
       "nome": "Depositante",
       "tipo": "Identificador",
@@ -228,7 +228,7 @@
       ]
     }
   },
-  
+
   "logica_escolha_coluna_data": {
     "titulo": "REGRA CRÍTICA: Como escolher entre PESADO_EM e IMPORTADO_EM",
     "regra_principal": "A escolha da coluna de data depende EXCLUSIVAMENTE do STATUS",
@@ -272,7 +272,7 @@
       }
     ]
   },
-  
+
   "analise_tipo_consulta": {
     "pedidos_vs_pecas": {
       "descricao": "Como identificar se o usuário quer contar pedidos ou somar peças",
@@ -294,7 +294,7 @@
       }
     }
   },
-  
+
   "periodos_tempo": {
     "descricao": "Como interpretar períodos de tempo nas perguntas",
     "mapeamentos": {
@@ -316,7 +316,7 @@
       }
     }
   },
-  
+
   "empresas_depositantes": {
     "descricao": "Mapeamento de empresas para ID de depositante",
     "importante": "Quando o usuário mencionar o nome de uma empresa, use o id_depositante correspondente",
@@ -365,7 +365,7 @@
       }
     ]
   },
-  
+
   "exemplos_aprendizado_completos": [
     {
       "id": 1,
@@ -516,7 +516,7 @@
       }
     }
   ],
-  
+
   "erros_comuns_evitar": [
     {
       "erro": "Usar PESADO_EM para status que não seja EXPEDIDO",
@@ -539,7 +539,7 @@
       "correcao": "B2C = INSIDER_B2C*, B2B = INSIDER_B2B*"
     }
   ],
-  
+
   "casos_complexos": [
     {
       "pergunta": "Quantos pedidos B2C foram expedidos hoje e quantas peças?",

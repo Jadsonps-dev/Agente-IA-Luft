@@ -2,9 +2,9 @@
   "funcao": "query_nf",
   "versao": "1.0",
   "descricao": "Documentação completa para consultas de Nota Fiscal individual",
-  
+
   "objetivo": "Ensinar o agente a identificar quando o usuário quer consultar uma nota fiscal específica e extrair o número correto",
-  
+
   "quando_usar": {
     "descricao": "Use esta função quando o usuário mencionar um número de nota fiscal ou pedido específico",
     "identificadores_chave": {
@@ -28,7 +28,8 @@
       "Rastreio da nota fiscal 22222",
       "Informações do pedido 33333",
       "Status 98765",
-      "Meu pedido 44444"
+      "Meu pedido 44444",
+      "23324"
     ],
     "nao_usar_quando": [
       "Quantos pedidos foram expedidos?",
@@ -38,7 +39,7 @@
       "Quanto foi expedido?"
     ]
   },
-  
+
   "extrair_numero_nf": {
     "descricao": "Como extrair o número da nota fiscal da pergunta do usuário",
     "regras": [
@@ -70,7 +71,7 @@
       }
     ]
   },
-  
+
   "informacoes_retornadas": {
     "descricao": "Dados que a API retorna para uma nota fiscal",
     "campos": {
@@ -81,7 +82,7 @@
       "encontrado": "true se a nota existe, false se não foi encontrada"
     }
   },
-  
+
   "respostas_formatadas": {
     "descricao": "Como formatar as respostas ao usuário",
     "regras_formatacao": [
@@ -112,7 +113,7 @@
       }
     ]
   },
-  
+
   "exemplos_aprendizado_completos": [
     {
       "pergunta_usuario": "Qual o status da nota 45678?",
@@ -142,7 +143,7 @@
       "acao": "Chamar API query_nf com numero_nf=88888"
     }
   ],
-  
+
   "erros_comuns_evitar": [
     {
       "erro": "Confundir data com número de NF",
