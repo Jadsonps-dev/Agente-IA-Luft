@@ -6,6 +6,7 @@ import requests
 from openai import OpenAI
 from dotenv import load_dotenv
 import time
+from urllib.parse import quote
 
 load_dotenv()
 
@@ -40,8 +41,13 @@ class AudioProcessor:
             timestamp = int(time.time() * 1000)
             temp_audio_path = f"temp_audio/audio_{timestamp}.ogg"
             
-            # Baixar o áudio usando Evolution API - endpoint correto
-            evolution_url = f"http://localhost:8080/message/getBase64FromMediaMessage/{instance}"
+            # Tentar diferentes endpoints da Evolution API
+            from urllib.parse import quote
+            instance_encoded = quote(instance)
+            
+            # Endpoint 1: getBase64FromMediaMessage
+            evolution_url = f"http://localhost:8080/message/getBase64FromMediaMessage/{instance_encoded}"
+            
             headers = {
                 "apikey": instance_key,
                 "Content-Type": "application/json"
@@ -54,28 +60,71 @@ class AudioProcessor:
             
             logger.info(f"📥 Baixando áudio via Evolution API")
             logger.info(f"📡 URL: {evolution_url}")
+            logger.info(f"📡 Headers: {headers}")
+            logger.info(f"📡 Payload keys: {list(payload.keys())}")
             
             response = requests.post(evolution_url, json=payload, headers=headers, timeout=30)
             
             logger.info(f"📥 Status da resposta: {response.status_code}")
+            logger.info(f"📥 Headers da resposta: {dict(response.headers)}")
             
-            if response.status_code != 200 and response.status_code != 201:
-                logger.error(f"❌ Erro na API: {response.status_code} - {response.text}")
+            # DEBUG: Sempre logar a resposta completa
+            try:
+                response_text = response.text
+                logger.info(f"📥 RESPOSTA COMPLETA (texto): {response_text}")
+                
+                if response.status_code == 200 or response.status_code == 201:
+                    response_data = response.json()
+                    logger.info(f"📥 RESPOSTA COMPLETA (JSON): {response_data}")
+                    logger.info(f"📥 Campos da resposta: {list(response_data.keys())}")
+                    logger.info(f"📥 Tipo de cada campo: {[(k, type(v).__name__) for k, v in response_data.items()]}")
+                else:
+                    logger.error(f"❌ Erro na API: {response.status_code} - {response_text}")
+                    return None
+                    
+            except Exception as e:
+                logger.error(f"❌ Erro ao parsear resposta: {str(e)}")
+                logger.error(f"❌ Resposta bruta: {response.text}")
                 return None
             
-            # Extrair base64 da resposta
-            response_data = response.json()
-            logger.info(f"📥 Campos da resposta: {list(response_data.keys())}")
+            # Tentar extrair base64 de diferentes campos possíveis
+            audio_base64 = None
             
-            # O base64 pode vir em diferentes campos
-            audio_base64 = (
-                response_data.get('base64') or 
-                response_data.get('media') or
-                response_data.get('base64Media')
-            )
+            # Lista de campos possíveis onde o base64 pode estar
+            possible_fields = [
+                'base64',
+                'media', 
+                'base64Media',
+                'mediaBase64',
+                'audio',
+                'audioBase64',
+                'data',
+                'content',
+                'file'
+            ]
+            
+            for field in possible_fields:
+                if field in response_data:
+                    audio_base64 = response_data[field]
+                    logger.info(f"✅ Base64 encontrado no campo '{field}': {len(str(audio_base64))} caracteres")
+                    break
+            
+            # Se não encontrou diretamente, verificar objetos aninhados
+            if not audio_base64:
+                for key, value in response_data.items():
+                    if isinstance(value, dict):
+                        logger.info(f"📦 Verificando objeto aninhado '{key}': {list(value.keys())}")
+                        for field in possible_fields:
+                            if field in value:
+                                audio_base64 = value[field]
+                                logger.info(f"✅ Base64 encontrado em '{key}.{field}': {len(str(audio_base64))} caracteres")
+                                break
+                        if audio_base64:
+                            break
             
             if not audio_base64:
-                logger.error(f"❌ Base64 não encontrado na resposta. Dados: {response_data}")
+                logger.error(f"❌ Base64 não encontrado em nenhum campo conhecido")
+                logger.error(f"❌ Estrutura completa da resposta: {response_data}")
                 return None
             
             logger.info(f"✅ Base64 obtido: {len(audio_base64)} caracteres")
