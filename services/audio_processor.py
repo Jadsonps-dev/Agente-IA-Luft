@@ -41,31 +41,64 @@ class AudioProcessor:
             timestamp = int(time.time() * 1000)
             temp_audio_path = f"temp_audio/audio_{timestamp}.ogg"
             
-            # Tentar diferentes endpoints da Evolution API
+            # Primeiro, vamos logar a estrutura completa da mensagem para debug
+            logger.info(f"📦 ESTRUTURA COMPLETA DA MENSAGEM:")
+            logger.info(f"📦 message_data keys: {list(message_data.keys())}")
+            logger.info(f"📦 message_data completo: {message_data}")
+            
+            # Extrair informações do áudio
+            audio_message = message_data.get('message', {}).get('audioMessage', {})
+            logger.info(f"🎵 audioMessage: {audio_message}")
+            
+            # A Evolution API geralmente usa o endpoint /chat/fetchMedia ou similar
+            # Vamos tentar diferentes abordagens
+            
             from urllib.parse import quote
             instance_encoded = quote(instance)
             
-            # Endpoint 1: getBase64FromMediaMessage
-            evolution_url = f"http://localhost:8080/message/getBase64FromMediaMessage/{instance_encoded}"
+            # Opção 1: Tentar baixar mídia diretamente via Evolution API
+            # O endpoint correto geralmente é /chat/downloadMediaMessage ou /message/downloadMedia
+            evolution_url = f"http://localhost:8080/chat/downloadMediaMessage/{instance_encoded}"
             
             headers = {
                 "apikey": instance_key,
                 "Content-Type": "application/json"
             }
             
-            # Payload com a estrutura completa da mensagem
+            # Extrair key da mensagem
+            message_key = message_data.get('key', {})
+            
+            # Payload conforme documentação da Evolution API
             payload = {
-                "message": message_data
+                "key": message_key
             }
             
             logger.info(f"📥 Baixando áudio via Evolution API")
             logger.info(f"📡 URL: {evolution_url}")
             logger.info(f"📡 Headers: {headers}")
-            logger.info(f"📡 Payload keys: {list(payload.keys())}")
+            logger.info(f"📡 Payload: {payload}")
             
+            # Tentar endpoint 1: /chat/downloadMediaMessage
             response = requests.post(evolution_url, json=payload, headers=headers, timeout=30)
             
-            logger.info(f"📥 Status da resposta: {response.status_code}")
+            logger.info(f"📥 Tentativa 1 - Status: {response.status_code}")
+            
+            # Se falhar, tentar outros endpoints
+            if response.status_code == 404:
+                logger.info("⚠️ Endpoint 1 não encontrado, tentando alternativa 2...")
+                evolution_url = f"http://localhost:8080/message/downloadMedia/{instance_encoded}"
+                response = requests.post(evolution_url, json=payload, headers=headers, timeout=30)
+                logger.info(f"📥 Tentativa 2 - Status: {response.status_code}")
+            
+            if response.status_code == 404:
+                logger.info("⚠️ Endpoint 2 não encontrado, tentando alternativa 3...")
+                # Tentar com o messageId diretamente
+                message_id = message_key.get('id')
+                payload_alt = {"messageId": message_id}
+                evolution_url = f"http://localhost:8080/chat/getBase64FromMediaMessage/{instance_encoded}"
+                response = requests.post(evolution_url, json=payload_alt, headers=headers, timeout=30)
+                logger.info(f"📥 Tentativa 3 - Status: {response.status_code}")
+            
             logger.info(f"📥 Headers da resposta: {dict(response.headers)}")
             
             # DEBUG: Sempre logar a resposta completa
