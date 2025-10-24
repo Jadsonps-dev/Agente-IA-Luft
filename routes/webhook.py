@@ -53,19 +53,29 @@ def receber_webhook():
             return jsonify({"status": "ignorado: grupo"}), 200
 
         # Verificar se é mensagem de áudio
-        audio_message = message_data.get('message', {}).get('audioMessage')
+        message_content = message_data.get("message", {})
+        audio_message = message_content.get('audioMessage')
 
         mensagem = "" # Inicializa a variável mensagem
 
         if audio_message:
             # Processar mensagem de áudio
             logger.info("🎤 Mensagem de áudio detectada")
-
-            # Extrair base64 do áudio
-            audio_base64 = audio_message.get('base64')
-
+            
+            # Tentar diferentes localizações do base64
+            audio_base64 = (
+                message_data.get('base64') or  # Nível raiz
+                audio_message.get('base64') or  # Dentro de audioMessage
+                message_content.get('base64')  # Dentro de message
+            )
+            
+            # Log para debug
+            logger.info(f"DEBUG - Estrutura da mensagem: {list(message_data.keys())}")
+            logger.info(f"DEBUG - audioMessage keys: {list(audio_message.keys())}")
+            
             if not audio_base64:
                 logger.warning("Áudio sem base64")
+                logger.warning(f"DEBUG - message_data completo: {message_data}")
                 return jsonify({"status": "erro", "message": "Áudio inválido"}), 400
 
             # Transcrever áudio
