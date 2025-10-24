@@ -60,20 +60,28 @@ def receber_webhook():
             # Processar mensagem de áudio
             logger.info("🎤 Mensagem de áudio detectada")
             
-            # Extrair ID da mensagem para baixar via Evolution API
-            message_id = key_data.get('id')
-            
             # Log para debug
             logger.info(f"DEBUG - Estrutura da mensagem: {list(message_data.keys())}")
             logger.info(f"DEBUG - audioMessage keys: {list(audio_message.keys())}")
-            logger.info(f"DEBUG - Message ID: {message_id}")
             
-            if not message_id:
-                logger.warning("Message ID não encontrado")
-                return jsonify({"status": "erro", "message": "Áudio inválido"}), 400
+            # Verificar se tem base64 no audioMessage
+            audio_base64 = None
+            
+            # O base64 pode vir em diferentes campos dependendo da versão da Evolution
+            if 'base64' in audio_message:
+                audio_base64 = audio_message['base64']
+                logger.info("✅ Base64 encontrado em audioMessage.base64")
+            elif 'audio' in message_content:
+                audio_base64 = message_content['audio'].get('base64')
+                logger.info("✅ Base64 encontrado em message.audio.base64")
+            
+            if not audio_base64:
+                logger.error(f"❌ Base64 não encontrado. Campos disponíveis: {list(audio_message.keys())}")
+                logger.error(f"DEBUG - audioMessage completo: {audio_message}")
+                return jsonify({"status": "erro", "message": "Áudio sem base64"}), 400
 
-            # Transcrever áudio usando Evolution API
-            mensagem = AudioProcessor.processar_audio_evolution(message_id, instance_name, api_key)
+            # Transcrever áudio usando o base64 direto
+            mensagem = AudioProcessor.processar_audio(audio_base64)
 
             if not mensagem or not mensagem.strip():
                 logger.error("Falha ao transcrever áudio ou áudio vazio")
