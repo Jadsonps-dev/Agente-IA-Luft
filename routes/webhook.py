@@ -166,4 +166,4 @@ def receber_webhook():
 
 @webhook_bp.route('/webhook', methods=['GET'])
 def verificar_webhook():
-    return jsonify({"status": "ativo", "serviço": "Go Case"}), 200
+    return jsonify({"status": "ativo", "serviço": "Luft Solutions"}), 200
