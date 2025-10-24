@@ -41,20 +41,20 @@ class AudioProcessor:
             timestamp = int(time.time() * 1000)
             temp_audio_path = f"temp_audio/audio_{timestamp}.ogg"
             
-            # Extrair o base64 do áudio diretamente da mensagem
-            # A Evolution API já envia o base64 dentro do audioMessage
-            audio_message = message_data.get('message', {}).get('audioMessage', {})
+            # O base64 está NO MESMO NÍVEL da 'message', não dentro do audioMessage
+            # Estrutura: {'key': {...}, 'message': {...}, 'base64': '...'}
+            message_obj = message_data.get('message', {})
             
-            if not audio_message:
-                logger.error("❌ audioMessage não encontrado na mensagem")
+            if not message_obj:
+                logger.error("❌ 'message' não encontrado na mensagem")
                 return None
             
-            # O base64 está diretamente no campo 'base64' do audioMessage
-            audio_base64 = audio_message.get('base64')
+            # Buscar o base64 no nível correto (mesmo nível de 'message')
+            audio_base64 = message_obj.get('base64')
             
             if not audio_base64:
-                logger.error("❌ Campo 'base64' não encontrado no audioMessage")
-                logger.error(f"❌ Campos disponíveis: {list(audio_message.keys())}")
+                logger.error("❌ Campo 'base64' não encontrado na message")
+                logger.error(f"❌ Campos disponíveis no message: {list(message_obj.keys())}")
                 return None
             
             logger.info(f"✅ Base64 obtido: {len(audio_base64)} caracteres")
