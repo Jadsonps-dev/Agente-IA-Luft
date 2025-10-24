@@ -31,36 +31,7 @@ with open('docs/query_nf_learning.json', 'r', encoding='utf-8') as f:
 with open('docs/query_consulta_op_learning.json', 'r', encoding='utf-8') as f:
     LEARNING_OP = json.load(f)
 
-MAPEAMENTO_STATUS = {
-    'expedido':
-    'EXPEDIDO',
-    'expedidos':
-    'EXPEDIDO',
-    'importado':
-    'IMPORTADO',
-    'importados':
-    'IMPORTADO',
-    'faturado':
-    'FATURADO',
-    'faturados':
-    'FATURADO',
-    'separacao':
-    'AG. SEPARAÇÃO',
-    'separação':
-    'AG. SEPARAÇÃO',
-    'processado':
-    'PROCESSADO',
-    'processados':
-    'PROCESSADO',
-    'cancelado':
-    'CANCELADO',
-    'cancelados':
-    'CANCELADO',
-    'fluxo': [
-        'IMPORTADO', 'AG. SEPARAÇÃO', 'PROCESSADO', 'FATURADO',
-        'ENVIADO PARA FATURAMENTO'
-    ]
-}
+# Mapeamentos removidos - o agente aprende através dos documentos JSON
 
 
 def analisar_pergunta_com_ia(mensagem_usuario):
@@ -216,58 +187,7 @@ def extrair_data_mensagem(mensagem):
     return data_inicio, data_fim
 
 
-def detectar_consulta_operacional(mensagem):
-    """
-    Detecta se a mensagem é uma consulta sobre operações (expedidos, importados, etc).
-    Retorna: (é_consulta_operacional, tipo_consulta, status_filtro)
-    """
-    mensagem_lower = mensagem.lower()
-
-    padroes_operacionais = [
-        r'quanto[s]?\s+(?:pedidos?|notas?)',
-        r'quantidad[e]?\s+(?:de\s+)?(?:pedidos?|notas?|peças?|pecas?)',
-        r'(?:pedidos?|notas?|peças?|pecas?)\s+(?:foi|foram|está|estão|estao|expedido|importado|faturado)',
-        r'(?:expedido|importado|faturado|processado|cancelado)[s]?\s+(?:hoje|ontem)',
-        r'total\s+(?:de\s+)?(?:pedidos?|notas?|peças?|pecas?)',
-        r'(?:resumo|relatório|relatorio)\s+(?:de\s+)?(?:pedidos?|operaç|operac)'
-    ]
-
-    for padrao in padroes_operacionais:
-        if re.search(padrao, mensagem_lower):
-            tipo_consulta = 'pecas' if any(word in mensagem_lower for word in [
-                'peça', 'peças', 'peca', 'pecas', 'quantidade de produto',
-                'total de produto'
-            ]) else 'pedidos'
-
-            status_filtro = None
-            for key, value in MAPEAMENTO_STATUS.items():
-                if key in mensagem_lower:
-                    status_filtro = value
-                    break
-
-            return True, tipo_consulta, status_filtro
-
-    return False, None, None
-
-
-def extrair_numero_nota_fiscal(mensagem):
-    """
-    Extrai o número da nota fiscal da mensagem do usuário.
-    Procura por padrões como: NF 123456, nota 123456, pedido 123456, etc.
-    """
-    padroes = [
-        r'\b(?:nf|nota|nota fiscal|pedido|nfe)\s*[:.\s-]*(\d+)',
-        r'\b(\d{5,})\b'
-    ]
-
-    for padrao in padroes:
-        match = re.search(padrao, mensagem, re.IGNORECASE)
-        if match:
-            numero = match.group(1)
-            logger.info(f"Número de nota fiscal detectado: {numero}")
-            return numero
-
-    return None
+# Funções de detecção removidas - o agente aprende através da IA e documentação
 
 
 def processar_periodo(periodo):

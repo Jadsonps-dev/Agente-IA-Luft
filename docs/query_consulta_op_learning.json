@@ -5,6 +5,74 @@
   
   "objetivo": "Ensinar o agente a analisar perguntas sobre quantidade de pedidos, peças, status, períodos e tipos de cliente",
   
+  "identificacao_automatica": {
+    "descricao": "Como identificar se a pergunta é uma consulta operacional (agregação) vs consulta de NF específica",
+    "regras_principais": [
+      "Se há um número específico (5+ dígitos) isolado ou após 'nota/NF/pedido' → consulta de NF individual",
+      "Se há palavras de agregação (quantos, total, quanto, soma) SEM número específico → consulta operacional",
+      "Se pergunta sobre período (hoje, ontem, semana) sem número de NF → consulta operacional",
+      "Se pergunta sobre status geral (expedidos, importados) sem número → consulta operacional"
+    ],
+    "palavras_indicadoras_operacional": [
+      "quantos",
+      "quantas",
+      "quanto",
+      "total",
+      "soma",
+      "número de",
+      "quantidade de",
+      "foram expedidos",
+      "foram importados",
+      "em fluxo",
+      "do dia",
+      "de hoje",
+      "de ontem",
+      "dessa semana"
+    ],
+    "palavras_indicadoras_nf_individual": [
+      "nota 12345",
+      "NF 67890",
+      "pedido 11111",
+      "rastreio",
+      "cadê",
+      "onde está",
+      "status da nota",
+      "meu pedido [número]"
+    ],
+    "exemplos_diferenciacao": [
+      {
+        "pergunta": "Quantos pedidos foram expedidos hoje?",
+        "tipo": "operacional",
+        "motivo": "Palavra 'quantos' indica agregação, sem número específico de NF"
+      },
+      {
+        "pergunta": "Status da nota 12345",
+        "tipo": "nota_fiscal",
+        "motivo": "Número específico 12345 após palavra 'nota'"
+      },
+      {
+        "pergunta": "Pedidos em fluxo",
+        "tipo": "operacional",
+        "motivo": "Pergunta sobre status geral sem número específico"
+      },
+      {
+        "pergunta": "Cadê meu pedido 67890?",
+        "tipo": "nota_fiscal",
+        "motivo": "Número específico 67890 após 'pedido'"
+      },
+      {
+        "pergunta": "Total de peças expedidas essa semana",
+        "tipo": "operacional",
+        "motivo": "Palavra 'total' indica agregação + período temporal"
+      },
+      {
+        "pergunta": "98765",
+        "tipo": "nota_fiscal",
+        "motivo": "Apenas um número com 5+ dígitos = provável número de NF"
+      }
+    ]
+  },
+  
   "colunas_disponiveis": {
     "NOTA_FISCAL": {
       "nome": "Nota Fiscal",

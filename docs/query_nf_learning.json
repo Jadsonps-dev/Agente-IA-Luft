@@ -7,17 +7,35 @@
   
   "quando_usar": {
     "descricao": "Use esta função quando o usuário mencionar um número de nota fiscal ou pedido específico",
+    "identificadores_chave": {
+      "palavras_indicadoras": ["nota", "nf", "pedido", "rastreio", "status da nota", "cadê", "onde está"],
+      "padroes_numero": [
+        "Número com 5+ dígitos após palavras-chave",
+        "Sequência numérica isolada na pergunta",
+        "Número após 'NF', 'nota', 'pedido'"
+      ]
+    },
+    "regras_identificacao": [
+      "Se a pergunta menciona um número específico (5+ dígitos) = consulta de NF",
+      "Se a pergunta tem palavras como 'quantos', 'total', 'quanto' SEM número específico = consulta operacional",
+      "Se a pergunta fala de 'status' + número = consulta de NF",
+      "Se a pergunta fala de 'status' sem número = consulta operacional"
+    ],
     "exemplos_quando_usar": [
       "Qual o status da nota 12345?",
       "Cadê meu pedido 67890?",
       "Onde está a NF 11111?",
       "Rastreio da nota fiscal 22222",
-      "Informações do pedido 33333"
+      "Informações do pedido 33333",
+      "Status 98765",
+      "Meu pedido 44444"
     ],
     "nao_usar_quando": [
       "Quantos pedidos foram expedidos?",
       "Total de notas do dia",
-      "Pedidos B2C da semana"
+      "Pedidos B2C da semana",
+      "Status das operações hoje",
+      "Quanto foi expedido?"
     ]
   },
   
