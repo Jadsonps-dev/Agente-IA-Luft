@@ -1,0 +1,165 @@
+{
+  "api_name": "WMS Luft Solutions - API de Consultas",
+  "version": "1.0",
+  "queries": {
+    "query_nf": {
+      "description": "Consulta informações detalhadas de uma nota fiscal específica pelo número",
+      "parametros": {
+        "id_depositante": "ID do depositante (2361178 ou 538607)",
+        "numero_nf": "Número da nota fiscal a ser consultada"
+      },
+      "colunas_retorno": [
+        {
+          "indice": 0,
+          "nome": "NUMERONF",
+          "tipo": "string",
+          "descricao": "Número da nota fiscal"
+        },
+        {
+          "indice": 1,
+          "nome": "STATUSPEDIDO",
+          "tipo": "string",
+          "descricao": "Status atual do pedido",
+          "valores_possiveis": [
+            "IMPORTADO",
+            "AG. SEPARAÇÃO",
+            "PROCESSADO",
+            "FATURADO",
+            "EXPEDIDO",
+            "CANCELADO",
+            "ENVIADO PARA FATURAMENTO"
+          ]
+        },
+        {
+          "indice": 2,
+          "nome": "TRANSPORTADORA",
+          "tipo": "string",
+          "descricao": "Nome da transportadora responsável pela entrega"
+        },
+        {
+          "indice": 3,
+          "nome": "CODIGORASTREIO",
+          "tipo": "string",
+          "descricao": "Código de rastreamento da transportadora"
+        }
+      ],
+      "exemplo_uso": "Buscar informações da NF 123456"
+    },
+    "query_status_op": {
+      "description": "Consulta operações e pedidos em um período de datas com informações agregadas",
+      "parametros": {
+        "id_depositante": "ID do depositante (2361178 ou 538607)",
+        "data_inicio": "Data inicial no formato DD/MM/YYYY",
+        "data_fim": "Data final no formato DD/MM/YYYY"
+      },
+      "colunas_retorno": [
+        {
+          "indice": 0,
+          "nome": "NUMERONF",
+          "tipo": "string",
+          "descricao": "Número da nota fiscal / pedido"
+        },
+        {
+          "indice": 1,
+          "nome": "DATANF",
+          "tipo": "date",
+          "descricao": "Data de emissão da nota fiscal no formato DD/MM/YYYY"
+        },
+        {
+          "indice": 2,
+          "nome": "STATUSPEDIDO",
+          "tipo": "string",
+          "descricao": "Status atual do pedido",
+          "valores_possiveis": [
+            "IMPORTADO",
+            "AG. SEPARAÇÃO",
+            "PROCESSADO",
+            "FATURADO",
+            "EXPEDIDO",
+            "CANCELADO",
+            "ENVIADO PARA FATURAMENTO"
+          ]
+        },
+        {
+          "indice": 3,
+          "nome": "QTDETOTALPRODUTO",
+          "tipo": "numeric",
+          "descricao": "Quantidade total de produtos/peças na nota fiscal",
+          "pode_somar": true,
+          "uso": "Use esta coluna para calcular total de peças expedidas/importadas/etc"
+        },
+        {
+          "indice": 4,
+          "nome": "TRANSPORTADORA",
+          "tipo": "string",
+          "descricao": "Nome da transportadora"
+        },
+        {
+          "indice": 5,
+          "nome": "CODIGORASTREIO",
+          "tipo": "string",
+          "descricao": "Código de rastreamento"
+        }
+      ],
+      "casos_de_uso": [
+        {
+          "pergunta": "Quantos pedidos foram expedidos hoje?",
+          "logica": "Filtrar STATUSPEDIDO = 'EXPEDIDO' e contar NUMERONF únicos",
+          "data": "hoje"
+        },
+        {
+          "pergunta": "Quantas peças foram importadas esta semana?",
+          "logica": "Filtrar STATUSPEDIDO = 'IMPORTADO' e somar QTDETOTALPRODUTO",
+          "data": "últimos 7 dias"
+        },
+        {
+          "pergunta": "Total de pedidos faturados ontem?",
+          "logica": "Filtrar STATUSPEDIDO = 'FATURADO' e contar NUMERONF únicos",
+          "data": "ontem"
+        },
+        {
+          "pergunta": "Pedidos em fluxo hoje?",
+          "logica": "Filtrar STATUSPEDIDO IN ['IMPORTADO', 'AG. SEPARAÇÃO', 'PROCESSADO', 'FATURADO', 'ENVIADO PARA FATURAMENTO'] e contar NUMERONF únicos",
+          "data": "hoje",
+          "observacao": "Em fluxo = todos os status exceto EXPEDIDO e CANCELADO"
+        }
+      ],
+      "regras_analise": {
+        "contagem_pedidos": "Sempre usar NUMERONF único (sem duplicatas) para contar pedidos",
+        "contagem_pecas": "Somar QTDETOTALPRODUTO para obter total de peças/produtos",
+        "filtro_status": "Sempre filtrar STATUSPEDIDO quando o usuário mencionar status específico",
+        "filtro_data": "Sempre usar DATANF para filtrar período solicitado",
+        "em_fluxo": "Status em fluxo = ['IMPORTADO', 'AG. SEPARAÇÃO', 'PROCESSADO', 'FATURADO', 'ENVIADO PARA FATURAMENTO']"
+      }
+    }
+  },
+  "depositantes": {
+    "2361178": {
+      "nome": "Depositante Principal",
+      "prioridade": 1,
+      "descricao": "Sempre consultar este depositante primeiro"
+    },
+    "538607": {
+      "nome": "Depositante Secundário",
+      "prioridade": 2,
+      "descricao": "Consultar apenas se não encontrar no depositante principal"
+    }
+  },
+  "instrucoes_gerais": {
+    "ordem_consulta": "Sempre tentar depositante 2361178 primeiro, depois 538607",
+    "formatacao_datas": "Todas as datas devem estar no formato DD/MM/YYYY",
+    "periodos_comuns": {
+      "hoje": "Data atual",
+      "ontem": "Data atual - 1 dia",
+      "esta_semana": "Últimos 7 dias",
+      "este_mes": "Últimos 30 dias"
+    },
+    "status_sinonimos": {
+      "expedido": ["expedido", "enviado", "despachado"],
+      "importado": ["importado", "recebido", "entrada"],
+      "faturado": ["faturado", "fatura"],
+      "processado": ["processado", "em processamento"],
+      "cancelado": ["cancelado", "cancelamento"]
+    }
+  }
+}

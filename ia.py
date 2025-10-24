@@ -3,6 +3,7 @@ import os
 import logging
 from dotenv import load_dotenv
 import re
+import json
 from datetime import datetime, timedelta
 from services.wms import EstruturaSQL
 from services.query import Queries
@@ -15,6 +16,10 @@ logger = logging.getLogger(__name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 ID_DEPOSITANTES = [2361178, 538607]
+
+# Carregar documentação da API
+with open('docs/api_wms_documentation.json', 'r', encoding='utf-8') as f:
+    API_DOCS = json.load(f)
 
 MAPEAMENTO_STATUS = {
     'expedido': 'EXPEDIDO',
@@ -31,6 +36,81 @@ MAPEAMENTO_STATUS = {
     'cancelados': 'CANCELADO',
     'fluxo': ['IMPORTADO', 'AG. SEPARAÇÃO', 'PROCESSADO', 'FATURADO', 'ENVIADO PARA FATURAMENTO']
 }
+
+
+def analisar_pergunta_com_ia(mensagem_usuario):
+    """
+    Usa OpenAI para analisar a pergunta do usuário e determinar como fazer a consulta.
+    Retorna instruções estruturadas baseadas na documentação da API.
+    """
+    try:
+        tools = [{
+            "type": "function",
+            "function": {
+                "name": "consultar_operacoes_wms",
+                "description": "Consulta operações no WMS baseado na documentação da API",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "tipo_consulta": {
+                            "type": "string",
+                            "enum": ["pedidos", "pecas", "nota_fiscal", "nenhuma"],
+                            "description": "Tipo de consulta: 'pedidos' para contar NFs únicas, 'pecas' para somar quantidade de produtos, 'nota_fiscal' para buscar uma NF específica"
+                        },
+                        "periodo": {
+                            "type": "string",
+                            "enum": ["hoje", "ontem", "semana", "mes", "personalizado"],
+                            "description": "Período da consulta"
+                        },
+                        "status_filtro": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Status para filtrar: EXPEDIDO, IMPORTADO, FATURADO, PROCESSADO, CANCELADO, AG. SEPARAÇÃO, ENVIADO PARA FATURAMENTO"
+                        },
+                        "numero_nf": {
+                            "type": "string",
+                            "description": "Número da nota fiscal (apenas para tipo_consulta=nota_fiscal)"
+                        }
+                    },
+                    "required": ["tipo_consulta"]
+                }
+            }
+        }]
+        
+        prompt = f"""Você é um analisador de consultas para o sistema WMS da Luft Solutions.
+
+DOCUMENTAÇÃO DA API WMS:
+{json.dumps(API_DOCS, indent=2, ensure_ascii=False)}
+
+PERGUNTA DO USUÁRIO:
+"{mensagem_usuario}"
+
+Analise a pergunta e determine:
+1. É uma consulta operacional (pedidos/peças) ou busca de nota fiscal específica?
+2. Qual período de tempo? (hoje, ontem, semana, mês)
+3. Quais status filtrar? (use os valores exatos da documentação)
+4. Se for busca de NF, qual o número?
+
+Use a função consultar_operacoes_wms para retornar as instruções."""
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            tools=tools,
+            tool_choice="auto"
+        )
+        
+        if response.choices[0].message.tool_calls:
+            tool_call = response.choices[0].message.tool_calls[0]
+            argumentos = json.loads(tool_call.function.arguments)
+            logger.info(f"✅ OpenAI analisou: {argumentos}")
+            return argumentos
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"Erro ao analisar pergunta com IA: {str(e)}")
+        return None
 
 
 def extrair_data_mensagem(mensagem):
@@ -120,9 +200,33 @@ def extrair_numero_nota_fiscal(mensagem):
     return None
 
 
+def processar_periodo(periodo):
+    """
+    Converte o período em datas DD/MM/YYYY.
+    """
+    hoje = datetime.now()
+    
+    if periodo == "hoje":
+        data_inicio = data_fim = hoje.strftime("%d/%m/%Y")
+    elif periodo == "ontem":
+        ontem = hoje - timedelta(days=1)
+        data_inicio = data_fim = ontem.strftime("%d/%m/%Y")
+    elif periodo == "semana":
+        data_inicio = (hoje - timedelta(days=7)).strftime("%d/%m/%Y")
+        data_fim = hoje.strftime("%d/%m/%Y")
+    elif periodo == "mes":
+        data_inicio = (hoje - timedelta(days=30)).strftime("%d/%m/%Y")
+        data_fim = hoje.strftime("%d/%m/%Y")
+    else:
+        data_inicio = data_fim = hoje.strftime("%d/%m/%Y")
+    
+    return data_inicio, data_fim
+
+
 def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta='pedidos'):
     """
     Consulta operações via API WMS e retorna estatísticas.
+    status_filtro pode ser string única ou lista de strings.
     """
     logger.info(f"Consultando operações de {data_inicio} a {data_fim}, status: {status_filtro}, tipo: {tipo_consulta}")
     
@@ -155,10 +259,10 @@ def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta
                 if len(columns) >= 6:
                     nota_fiscal = columns[0]
                     status_nf = columns[2]
-                    qtde_produto = columns[5] if columns[5] else 0
+                    qtde_produto = columns[3] if len(columns) > 3 else 0
                     
                     if isinstance(status_filtro, list):
-                        status_match = status_nf in status_filtro
+                        status_match = status_nf in status_filtro if status_filtro else True
                     elif status_filtro:
                         status_match = status_nf == status_filtro
                     else:
@@ -167,7 +271,7 @@ def consultar_operacoes(data_inicio, data_fim, status_filtro=None, tipo_consulta
                     if status_match:
                         pedidos_unicos.add(nota_fiscal)
                         try:
-                            total_pecas += float(qtde_produto)
+                            total_pecas += float(qtde_produto) if qtde_produto else 0
                         except (ValueError, TypeError):
                             pass
             
@@ -272,15 +376,20 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                 ja_interagiu = True
             redis_client.set(historico_key, {"interagiu": True}, ex=3600)
         
-        eh_consulta_op, tipo_consulta, status_filtro = detectar_consulta_operacional(mensagem_usuario)
+        analise_ia = analisar_pergunta_com_ia(mensagem_usuario)
         
-        if eh_consulta_op:
-            logger.info(f"Detectada consulta operacional: tipo={tipo_consulta}, status={status_filtro}")
-            data_inicio, data_fim = extrair_data_mensagem(mensagem_usuario)
+        if analise_ia and analise_ia.get('tipo_consulta') in ['pedidos', 'pecas']:
+            logger.info(f"🤖 IA detectou consulta operacional: {analise_ia}")
+            
+            periodo = analise_ia.get('periodo', 'hoje')
+            data_inicio, data_fim = processar_periodo(periodo)
+            status_filtro = analise_ia.get('status_filtro')
+            tipo_consulta = analise_ia['tipo_consulta']
+            
             dados_op = consultar_operacoes(data_inicio, data_fim, status_filtro, tipo_consulta)
             
             if dados_op and dados_op.get('encontrado'):
-                status_texto = status_filtro if isinstance(status_filtro, str) else "em fluxo" if isinstance(status_filtro, list) else "no total"
+                status_texto = ', '.join(status_filtro) if isinstance(status_filtro, list) else (status_filtro or "todos")
                 
                 if tipo_consulta == 'pecas':
                     contexto = f"""
@@ -297,30 +406,30 @@ Status: {status_texto}
 Total de pedidos: {dados_op['quantidade_pedidos']}
                     """
         
-        numero_nf = extrair_numero_nota_fiscal(mensagem_usuario) if not eh_consulta_op else None
-        
-        if numero_nf:
-            logger.info(f"Processando consulta de nota fiscal: {numero_nf}")
-            dados_nf = consultar_nota_fiscal(numero_nf)
-            
-            if dados_nf and dados_nf.get('encontrado'):
-                contexto = f"""
+        elif analise_ia and analise_ia.get('tipo_consulta') == 'nota_fiscal':
+            numero_nf = analise_ia.get('numero_nf')
+            if numero_nf:
+                logger.info(f"🤖 IA detectou busca de NF: {numero_nf}")
+                dados_nf = consultar_nota_fiscal(numero_nf)
+                
+                if dados_nf and dados_nf.get('encontrado'):
+                    contexto = f"""
 INFORMAÇÕES DA NOTA FISCAL {dados_nf['numero_nf']}:
 - Status: {dados_nf['status']}
 - Transportadora: {dados_nf['transportadora']}
 - Código de Rastreio: {dados_nf['codigo_rastreio']}
-                """
-            elif dados_nf and not dados_nf.get('encontrado'):
-                contexto = f"""
+                    """
+                elif dados_nf and not dados_nf.get('encontrado'):
+                    contexto = f"""
 A nota fiscal {numero_nf} não foi encontrada no sistema.
 Pode ser que o número esteja incorreto ou o pedido ainda não foi processado.
-                """
-            else:
-                contexto = """
+                    """
+                else:
+                    contexto = """
 Houve um problema ao consultar o sistema. Por favor, tente novamente em alguns instantes.
-                """
+                    """
 
-        if not ja_interagiu and not numero_nf and not eh_consulta_op:
+        if not ja_interagiu and not contexto:
             saudacao = "Boa tarde" if 12 <= datetime.now().hour < 18 else "Bom dia" if datetime.now().hour < 12 else "Boa noite"
             return f"{saudacao}! 😊\n\nSou assistente da Luft Solutions. Como posso ajudar você hoje? Se precisar de informações sobre seus pedidos, por favor, me forneça a nota fiscal ou número do pedido. 📦"
 
