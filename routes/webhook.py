@@ -44,8 +44,6 @@ def receber_webhook():
         sender = key_data.get("remoteJid", "")
         from_me = key_data.get("fromMe", False)
 
-        logger.info(f"DEBUG - fromMe: {from_me}, sender: {sender}, instance: {instance_name}")
-
         if sender and sender.endswith("@g.us"):
             logger.info(f"Ignorado grupo: {sender}")
             return jsonify({"status": "ignorado: grupo"}), 200
@@ -58,18 +56,6 @@ def receber_webhook():
 
         if audio_message:
             # Processar mensagem de áudio
-            logger.info("🎤 Mensagem de áudio detectada")
-            
-            # Extrair o message_id da key
-            message_id = key_data.get('id')
-            
-            if not message_id:
-                logger.error("❌ Message ID não encontrado")
-                return jsonify({"status": "erro", "message": "Áudio inválido"}), 400
-            
-            logger.info(f"📥 Baixando áudio - Message ID: {message_id}")
-            
-            # Baixar e transcrever áudio via Evolution API
             mensagem = AudioProcessor.processar_audio_evolution(
                 message_data=message_data,
                 instance=instance_name,
@@ -77,10 +63,8 @@ def receber_webhook():
             )
 
             if not mensagem or not mensagem.strip():
-                logger.error("Falha ao transcrever áudio ou áudio vazio")
+                logger.error("❌ Falha ao transcrever áudio")
                 return jsonify({"status": "erro", "message": "Não consegui entender o áudio. Tente novamente."}), 500
-
-            logger.info(f"📝 Áudio transcrito: {mensagem}")
         else:
             # Processar mensagem de texto normal
             message_content = message_data.get("message", {})

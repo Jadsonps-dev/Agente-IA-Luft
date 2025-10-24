@@ -1,4 +1,3 @@
-
 import base64
 import os
 import logging
@@ -48,24 +47,21 @@ class AudioProcessor:
             audio_base64 = message_obj.get('base64')
 
             if not audio_base64:
-                logger.error("❌ Campo 'base64' não encontrado na message")
-                logger.error(f"❌ Campos disponíveis no message: {list(message_obj.keys())}")
+                logger.error("❌ Base64 do áudio não encontrado")
                 return None
 
-            logger.info(f"✅ Base64 obtido: {len(audio_base64)} caracteres")
-
+            # Decodificar e salvar áudio
             audio_data = base64.b64decode(audio_base64)
             with open(temp_audio_path, "wb") as f:
                 f.write(audio_data)
 
             file_size = os.path.getsize(temp_audio_path)
-            logger.info(f"💾 Áudio salvo: {temp_audio_path} ({file_size} bytes)")
 
             if file_size < 100:
                 logger.warning(f"⚠️ Arquivo muito pequeno: {file_size} bytes")
                 return None
 
-            logger.info("🎤 Enviando para Whisper API...")
+            # Transcrever com Whisper
             with open(temp_audio_path, "rb") as audio_file:
                 transcription = client.audio.transcriptions.create(
                     model="whisper-1",
@@ -75,12 +71,12 @@ class AudioProcessor:
                 )
 
             texto_transcrito = transcription if isinstance(transcription, str) else transcription.text
-            logger.info(f"✅ Transcrição: '{texto_transcrito}' ({len(texto_transcrito)} caracteres)")
+            logger.info(f"📝 Áudio transcrito: '{texto_transcrito}'")
 
             return texto_transcrito.strip() if texto_transcrito else None
 
         except requests.RequestException as e:
-            logger.error(f"❌ Erro HTTP ao baixar áudio: {str(e)}")
+            logger.error(f"❌ Erro HTTP ao processar áudio: {str(e)}")
             if hasattr(e, 'response') and e.response is not None:
                 logger.error(f"❌ Resposta: {e.response.text}")
             return None
@@ -97,55 +93,3 @@ class AudioProcessor:
                     logger.info(f"🗑️ Arquivo temporário removido: {temp_audio_path}")
                 except Exception as e:
                     logger.warning(f"⚠️ Erro ao remover arquivo: {str(e)}")
-
-    @staticmethod
-    def processar_audio(audio_base64):
-        """
-        Processa áudio base64 e retorna a transcrição usando Whisper
-        (Mantido para compatibilidade)
-
-        Args:
-            audio_base64: String base64 do áudio
-
-        Returns:
-            str: Texto transcrito ou None em caso de erro
-        """
-        temp_audio_path = None
-
-        try:
-            os.makedirs('temp_audio', exist_ok=True)
-
-            timestamp = int(time.time() * 1000)
-            temp_audio_path = f"temp_audio/audio_{timestamp}.ogg"
-
-            audio_data = base64.b64decode(audio_base64)
-            with open(temp_audio_path, "wb") as f:
-                f.write(audio_data)
-
-            file_size = os.path.getsize(temp_audio_path)
-            logger.info(f"Áudio salvo temporariamente: {temp_audio_path} ({file_size} bytes)")
-
-            with open(temp_audio_path, "rb") as audio_file:
-                transcription = client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=audio_file,
-                    language="pt",
-                    response_format="text"
-                )
-
-            texto_transcrito = transcription if isinstance(transcription, str) else transcription.text
-            logger.info(f"📝 Transcrição concluída: '{texto_transcrito}'")
-
-            return texto_transcrito.strip() if texto_transcrito else None
-
-        except Exception as e:
-            logger.error(f"Erro ao processar áudio: {str(e)}")
-            return None
-
-        finally:
-            if temp_audio_path and os.path.exists(temp_audio_path):
-                try:
-                    os.remove(temp_audio_path)
-                    logger.info(f"Arquivo temporário removido: {temp_audio_path}")
-                except Exception as e:
-                    logger.warning(f"Erro ao remover arquivo temporário: {str(e)}")
