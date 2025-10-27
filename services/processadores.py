@@ -31,7 +31,7 @@ class ProcessadorAcompanhamentoNF:
                     nota_fiscal = columns[0]
                     status_nf = columns[1]
                     transportadora = columns[2]
-                    codigo_rastreio = columns[3] or None  # pode vir vazio
+                    codigo_rastreio = columns[3] or None
 
                     append_dado((
                         nota_fiscal,

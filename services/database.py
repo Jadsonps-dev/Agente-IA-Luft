@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 
 class DataBaseOP:
     """Classe para operações de banco de dados PostgreSQL"""
-    
+
     def __init__(self, db_config):
         self.db_config = db_config
         self.conn = None
@@ -47,12 +47,12 @@ class DataBaseOP:
             cursor = self.conn.cursor()
             start_time = time.time()
             total = len(dados)
-            
+
             for i in range(0, total, batch_size):
                 batch = dados[i:i + batch_size]
                 execute_batch(cursor, insert_sql, batch, page_size=batch_size)
                 print(f"Inseridos {i+len(batch)} / {total} registros")
-            
+
             self.conn.commit()
             print(f"Inserção concluída! Tempo total: {time.time()-start_time:.2f}s")
             cursor.close()

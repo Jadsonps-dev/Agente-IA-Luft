@@ -41,16 +41,15 @@ class AudioProcessor:
             message_obj = message_data.get('message', {})
 
             if not message_obj:
-                logger.error("❌ 'message' não encontrado na mensagem")
+                logger.error("'message' não encontrado na mensagem")
                 return None
 
             audio_base64 = message_obj.get('base64')
 
             if not audio_base64:
-                logger.error("❌ Base64 do áudio não encontrado")
+                logger.error("Base64 do áudio não encontrado")
                 return None
 
-            # Decodificar e salvar áudio
             audio_data = base64.b64decode(audio_base64)
             with open(temp_audio_path, "wb") as f:
                 f.write(audio_data)
@@ -58,10 +57,9 @@ class AudioProcessor:
             file_size = os.path.getsize(temp_audio_path)
 
             if file_size < 100:
-                logger.warning(f"⚠️ Arquivo muito pequeno: {file_size} bytes")
+                logger.warning(f"Arquivo muito pequeno: {file_size} bytes")
                 return None
 
-            # Transcrever com Whisper
             with open(temp_audio_path, "rb") as audio_file:
                 transcription = client.audio.transcriptions.create(
                     model="whisper-1",
@@ -71,17 +69,17 @@ class AudioProcessor:
                 )
 
             texto_transcrito = transcription if isinstance(transcription, str) else transcription.text
-            logger.info(f"📝 Áudio transcrito: '{texto_transcrito}'")
+            logger.info(f"Áudio transcrito: '{texto_transcrito}'")
 
             return texto_transcrito.strip() if texto_transcrito else None
 
         except requests.RequestException as e:
-            logger.error(f"❌ Erro HTTP ao processar áudio: {str(e)}")
+            logger.error(f"Erro HTTP ao processar áudio: {str(e)}")
             if hasattr(e, 'response') and e.response is not None:
-                logger.error(f"❌ Resposta: {e.response.text}")
+                logger.error(f"Resposta: {e.response.text}")
             return None
         except Exception as e:
-            logger.error(f"❌ Erro ao processar áudio: {str(e)}")
+            logger.error(f"Erro ao processar áudio: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
             return None
@@ -90,6 +88,6 @@ class AudioProcessor:
             if temp_audio_path and os.path.exists(temp_audio_path):
                 try:
                     os.remove(temp_audio_path)
-                    logger.info(f"🗑️ Arquivo temporário removido: {temp_audio_path}")
+                    logger.info(f"Arquivo temporário removido: {temp_audio_path}")
                 except Exception as e:
-                    logger.warning(f"⚠️ Erro ao remover arquivo: {str(e)}")
+                    logger.warning(f"Erro ao remover arquivo: {str(e)}")

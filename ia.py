@@ -136,7 +136,7 @@ def analisar_pergunta_com_ia(mensagem_usuario):
         if response.choices[0].message.tool_calls:
             tool_call = response.choices[0].message.tool_calls[0]
             argumentos = json.loads(tool_call.function.arguments)
-            logger.info(f"✅ OpenAI analisou: {argumentos}")
+            logger.info(f"OpenAI analisou: {argumentos}")
             return argumentos
 
         return None
@@ -228,7 +228,7 @@ def consultar_operacoes(data_inicio,
     for id_depositante in ID_DEPOSITANTES:
         estrutura = None
         try:
-            sql_query = Queries.query_status_op(id_depositante)
+            sql_query = Queries.query_analise_op(id_depositante)
             sql_query = sql_query.replace("&Data_Inicio", f"'{data_inicio}'")
             sql_query = sql_query.replace("&Data_Fim", f"'{data_fim}'")
 
@@ -297,7 +297,7 @@ def consultar_operacoes(data_inicio,
                     'id_depositante': id_depositante
                 }
                 logger.info(
-                    f"✅ Operações encontradas no depositante {id_depositante}: {resultado}"
+                    f"Operações encontradas no depositante {id_depositante}: {resultado}"
                 )
                 return resultado
 
@@ -337,7 +337,7 @@ def consultar_nota_fiscal(numero_nf):
                 f"Consultando nota fiscal {numero_nf} no depositante {id_depositante}"
             )
 
-            sql_query = Queries.query_nf(id_depositante, numero_nf)
+            sql_query = Queries.query_status_nf(id_depositante, numero_nf)
             estrutura = EstruturaSQL(id_depositante, sql_query)
 
             resposta_api = estrutura.fazer_requisicao_api(
@@ -369,7 +369,7 @@ def consultar_nota_fiscal(numero_nf):
                     }
 
                     logger.info(
-                        f"✅ Dados da NF {numero_nf} encontrados no depositante {id_depositante}"
+                        f"Dados da NF {numero_nf} encontrados no depositante {id_depositante}"
                     )
                     return dados_nf
 
@@ -387,7 +387,7 @@ def consultar_nota_fiscal(numero_nf):
                 estrutura.fechar_sessao()
 
     logger.warning(
-        f"❌ NF {numero_nf} não encontrada em nenhum dos depositantes")
+        f"NF {numero_nf} não encontrada em nenhum dos depositantes")
     return {'encontrado': False, 'numero_nf': numero_nf}
 
 
@@ -408,7 +408,7 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
         if analise_ia and analise_ia.get('tipo_consulta') in [
                 'pedidos', 'pecas'
         ]:
-            logger.info(f"🤖 IA detectou consulta operacional: {analise_ia}")
+            logger.info(f"IA detectou consulta operacional: {analise_ia}")
 
             periodo = analise_ia.get('periodo', 'hoje')
             data_inicio, data_fim = processar_periodo(periodo)
@@ -446,7 +446,7 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
         elif analise_ia and analise_ia.get('tipo_consulta') == 'nota_fiscal':
             numero_nf = analise_ia.get('numero_nf')
             if numero_nf:
-                logger.info(f"🤖 IA detectou busca de NF: {numero_nf}")
+                logger.info(f"IA detectou busca de NF: {numero_nf}")
                 dados_nf = consultar_nota_fiscal(numero_nf)
 
                 if dados_nf and dados_nf.get('encontrado'):

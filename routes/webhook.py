@@ -29,10 +29,9 @@ def receber_webhook():
         event = data.get("event", "")
         instance_name = data.get("instance", "")
 
-        # ✅ Usar a API Key diretamente do ambiente (não vem no webhook)
-        api_key = os.getenv("AUTHENTICATION_API_KEY")  # Alterado para usar a variável correta
+        api_key = os.getenv("AUTHENTICATION_API_KEY")  
         if not api_key:
-            logger.error("❌ API Key da Evolution API não encontrada nas variáveis de ambiente")
+            logger.error("API Key da Evolution API não encontrada nas variáveis de ambiente")
             return jsonify({"status": "erro", "message": "API Key ausente"}), 400
 
         if event != "messages.upsert":
@@ -48,14 +47,13 @@ def receber_webhook():
             logger.info(f"Ignorado grupo: {sender}")
             return jsonify({"status": "ignorado: grupo"}), 200
 
-        # Verificar se é mensagem de áudio
         message_content = message_data.get("message", {})
         audio_message = message_content.get('audioMessage')
 
-        mensagem = "" # Inicializa a variável mensagem
+        mensagem = "" 
 
         if audio_message:
-            # Processar mensagem de áudio
+
             mensagem = AudioProcessor.processar_audio_evolution(
                 message_data=message_data,
                 instance=instance_name,
@@ -63,10 +61,10 @@ def receber_webhook():
             )
 
             if not mensagem or not mensagem.strip():
-                logger.error("❌ Falha ao transcrever áudio")
+                logger.error("Falha ao transcrever áudio")
                 return jsonify({"status": "erro", "message": "Não consegui entender o áudio. Tente novamente."}), 500
         else:
-            # Processar mensagem de texto normal
+
             message_content = message_data.get("message", {})
             if "conversation" in message_content:
                 mensagem = message_content["conversation"]
@@ -82,20 +80,18 @@ def receber_webhook():
             logger.info(f"Ignorada mensagem vazia: {sender}")
             return jsonify({"status": "ignorado: mensagem vazia"}), 200
 
-        # Depois de extrair os dados
         sender_number = sender.split("@")[0] if sender and "@" in sender else None
 
-        # 🔴 Validação antes de prosseguir
         if not sender_number or not sender_number.isdigit():
-            logger.error(f"❌ Número inválido extraído: {sender}")
+            logger.error(f"Número inválido extraído: {sender}")
             return jsonify({"status": "erro", "message": "Número inválido"}), 400
 
         if not instance_name:
-            logger.error("❌ Instância não fornecida")
+            logger.error("Instância não fornecida")
             return jsonify({"status": "erro", "message": "Instância ausente"}), 400
 
         if not api_key:
-            logger.error("❌ API Key da Evolution não encontrada")
+            logger.error("API Key da Evolution não encontrada")
             return jsonify({"status": "erro", "message": "API Key ausente"}), 500
 
         logger.info(f"Processando mensagem de {sender_number}: {mensagem}")
@@ -127,7 +123,7 @@ def receber_webhook():
             except Exception as e:
                 logger.error(f"Erro ao processar mensagem com IA: {str(e)}")
                 evolution.enviar_mensagem(
-                    message="⚠️ Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente mais tarde.",
+                    message="Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente mais tarde.",
                     instance=instance_name,
                     instance_key=api_key,
                     sender_number=sender_number
@@ -139,7 +135,7 @@ def receber_webhook():
         return jsonify({"status": "processado"}), 200
 
     except Exception as e:
-        logger.error(f"❌ Erro ao processar webhook: {str(e)}")
+        logger.error(f"Erro ao processar webhook: {str(e)}")
         return jsonify({"status": "erro", "message": str(e)}), 500
 
 

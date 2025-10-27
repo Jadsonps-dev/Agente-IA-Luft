@@ -33,7 +33,7 @@ class EvolutionAPI:
     def enviar_mensagem(self, message, instance, instance_key, sender_number):
         """Envia mensagem de texto com tratamento completo de erros"""
         try:
-            # 🔴 VALIDAÇÕES EXPLÍCITAS
+
             if not sender_number or not sender_number.strip().isdigit():
                 raise ValueError(f"sender_number inválido: '{sender_number}'")
 
@@ -57,9 +57,9 @@ class EvolutionAPI:
                 "Content-Type": "application/json"
             }
 
-            self.logger.info(f"📤 Enviando mensagem para {sender_number} na instância {instance}")
-            self.logger.info(f"📝 Mensagem: {message[:100]}...")
-            self.logger.info(f"📡 Endpoint: {self.base_url}/message/sendText/{instance}")
+            self.logger.info(f"Enviando mensagem para {sender_number} na instância {instance}")
+            self.logger.info(f"Mensagem: {message[:100]}...")
+            self.logger.info(f"Endpoint: {self.base_url}/message/sendText/{instance}")
 
             response = self._make_request(
                 "POST", f"message/sendText/{instance}", payload, headers)
@@ -73,7 +73,7 @@ class EvolutionAPI:
             }
 
         except Exception as e:
-            self.logger.error(f"❌ Falha ao enviar mensagem: {str(e)}")
+            self.logger.error(f"Falha ao enviar mensagem: {str(e)}")
             return {"status": "error", "details": str(e)}
 
     def enviar_imagem(self, instance, apikey, phone, qr_filename):
@@ -99,19 +99,19 @@ class EvolutionAPI:
 
             url = f"{self.base_url}/message/sendMedia/{instance}"
 
-            print(f"📤 Enviando para: {url}")
+            print(f"Enviando para: {url}")
             response = requests.post(url, json=payload, headers=headers, timeout=30)
-            print(f"📥 Resposta ({response.status_code}): {response.text}")
+            print(f"Resposta ({response.status_code}): {response.text}")
 
             if response.status_code == 201:
-                print("✅ Imagem enviada com sucesso!")
+                print("Imagem enviada com sucesso!")
                 return True
             else:
-                print(f"❌ Erro na API: {response.json().get('message', 'Erro desconhecido')}")
+                print(f"Erro na API: {response.json().get('message', 'Erro desconhecido')}")
                 return False
 
         except Exception as e:
-            print(f"🔥 Erro crítico: {str(e)}")
+            print(f"Erro crítico: {str(e)}")
             return False
 
     def download_media(self, media_id, instance, instance_key):

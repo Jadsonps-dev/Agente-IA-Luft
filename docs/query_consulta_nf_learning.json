@@ -1,5 +1,5 @@
 {
-  "funcao": "query_nf",
+  "funcao": "query_status_nf",
   "versao": "1.0",
   "descricao": "Documentação completa para consultas de Nota Fiscal individual",
 
@@ -122,7 +122,7 @@
         "numero_nf": "45678",
         "explicacao_decisao": "Usuário mencionou 'nota' seguido de um número específico"
       },
-      "acao": "Chamar API query_nf com numero_nf=45678"
+      "acao": "Chamar API query_status_nf com numero_nf=45678"
     },
     {
       "pergunta_usuario": "Cadê meu pedido 99999?",
@@ -131,7 +131,7 @@
         "numero_nf": "99999",
         "explicacao_decisao": "Usuário quer saber sobre um pedido específico pelo número"
       },
-      "acao": "Chamar API query_nf com numero_nf=99999"
+      "acao": "Chamar API query_status_nf com numero_nf=99999"
     },
     {
       "pergunta_usuario": "Rastreio da NF 88888",
@@ -140,7 +140,7 @@
         "numero_nf": "88888",
         "explicacao_decisao": "Usuário quer rastreio de uma nota fiscal específica"
       },
-      "acao": "Chamar API query_nf com numero_nf=88888"
+      "acao": "Chamar API query_status_nf com numero_nf=88888"
     }
   ],
 
@@ -148,12 +148,12 @@
     {
       "erro": "Confundir data com número de NF",
       "exemplo": "Pedidos de 25/10/2024",
-      "correcao": "25/10/2024 é uma data, não um número de nota fiscal. Use query_consulta_op"
+      "correcao": "25/10/2024 é uma data, não um número de nota fiscal. Use query_analise_op"
     },
     {
-      "erro": "Tentar usar query_nf para múltiplas notas",
+      "erro": "Tentar usar query_status_nf para múltiplas notas",
       "exemplo": "Quantas notas foram expedidas?",
-      "correcao": "Esta é uma consulta agregada, use query_consulta_op"
+      "correcao": "Esta é uma consulta agregada, use query_analise_op"
     }
   ]
 }

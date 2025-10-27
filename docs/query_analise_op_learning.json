@@ -1,5 +1,5 @@
 {
-  "funcao": "query_consulta_op",
+  "funcao": "query_analise_op",
   "versao": "1.0",
   "descricao": "Documentação completa para consultas operacionais e analytics",
 

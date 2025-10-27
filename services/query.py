@@ -3,7 +3,7 @@ class Queries:
         pass
 
     @staticmethod
-    def query_nf(id_depositante, nota_fiscal):
+    def query_status_nf(id_depositante, nota_fiscal):
         """Consulta simplificada de acompanhamento de saída"""
         return f"""
         SELECT 
@@ -11,14 +11,23 @@ class Queries:
 
             CASE
                 WHEN nfi.statusdoc = 0 THEN 'AG. FORMAÇÃO DE ROMANEIO/ONDA'
+                WHEN nfi.statusdoc = 1 THEN 'AG. SEPARAÇÃO'
+                WHEN nfi.statusdoc = 2 THEN 'SEPARAÇÃO EM ANDAMENTO'
+                WHEN nfi.statusdoc = 3 THEN 'SEPARAÇÃO CONCLUÍDA'
+                WHEN nfi.statusdoc = 4 THEN 'CONFERÊNCIA EM ANDAMENTO'
+                WHEN nfi.statusdoc = 5 THEN 'CONFERÊNCIA CONCLUÍDA'
+                WHEN nfi.statusdoc = 6 THEN 'PESAGEM CONCLUÍDA'
+                WHEN nfi.statusdoc = 7 THEN 'AG. FATURAMENTO'
                 WHEN nfi.statusdoc = 8 THEN 'COLETA INICIADA'
                 WHEN nfi.statusdoc = 9 THEN 'EXPEDIDO'
-                WHEN (nfi.statusdoc = 10 OR (nfi.statusdoc = 12 AND nf.datacancelamento IS NOT NULL AND nf.statusnf = 'X'))
-                    THEN DECODE(nf.canceladoporerrointegracao, 1, 'ERRO DE INTEGRAÇÃO', 'CANCELADO')
+                WHEN nfi.statusdoc = 10 THEN 
+                    DECODE(nf.canceladoporerrointegracao, 1, 'ERRO DE INTEGRAÇÃO', 'CANCELADO')
                 WHEN nfi.statusdoc = 11 THEN 'QUARENTENA'
-                WHEN nf.statusnf = 'P' THEN 'PROCESSADO'
+                WHEN nfi.statusdoc = 12 AND nf.datacancelamento IS NOT NULL AND nf.statusnf = 'X' THEN 
+                    DECODE(nf.canceladoporerrointegracao, 1, 'ERRO DE INTEGRAÇÃO', 'CANCELADO')
                 WHEN nfi.statusdoc = 12 AND nf.digitada = 'S' THEN 'DIGITADO'
                 WHEN nfi.statusdoc = 12 AND nf.digitada = 'N' AND nf.statusnf = 'I' THEN 'IMPORTADO'
+                WHEN nf.statusnf = 'P' THEN 'PROCESSADO'
                 WHEN nf.tiponf IN ('N', 'E') AND NVL(nf.impresso, 'N') = 'S' THEN 'FATURADO'
                 WHEN nf.enviadofaturamento = 'S' THEN 'ENVIADO PARA FATURAMENTO'
                 ELSE 'AG. SEPARAÇÃO'
@@ -28,15 +37,17 @@ class Queries:
             nf.codigorastreio AS "Código Rastreio"
 
         FROM notafiscal nf
-        JOIN nfimpressao nfi ON nfi.idprenf = nf.idprenf
-        LEFT JOIN entidade t ON t.identidade = nf.transportadoranotafiscal
+        JOIN nfimpressao nfi 
+            ON nfi.idprenf = nf.idprenf
+        LEFT JOIN entidade t 
+            ON t.identidade = nf.transportadoranotafiscal
 
         WHERE nf.iddepositante = {id_depositante}
           AND nf.codigointerno = '{nota_fiscal}'
         """
 
     @staticmethod
-    def query_status_op(id_depositante):
+    def query_analise_op(id_depositante):
         """Consulta simplificada de acompanhamento de saída"""
         return f"""
         SELECT 

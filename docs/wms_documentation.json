@@ -2,7 +2,7 @@
   "api_name": "WMS Luft Solutions - API de Consultas",
   "version": "2.0",
   "queries": {
-    "query_nf": {
+    "query_status_nf": {
       "description": "Consulta informações detalhadas de uma nota fiscal específica pelo número",
       "parametros": {
         "id_depositante": "ID do depositante (2361178 ou 538607)",
@@ -36,7 +36,7 @@
         }
       ]
     },
-    "query_consulta_op": {
+    "query_analise_op": {
       "description": "Consulta operacional completa com filtros de data, status, tipo (B2B/B2C) e contagem/soma",
       "parametros": {
         "id_depositante": "ID do depositante (2361178 ou 538607)",
