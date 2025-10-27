@@ -64,13 +64,14 @@ def receber_webhook():
                 logger.error("Falha ao transcrever áudio")
                 return jsonify({"status": "erro", "message": "Não consegui entender o áudio. Tente novamente."}), 500
             
-            # Limpar vírgulas e espaços de números de NF do áudio
+            # Limpar todos os separadores possíveis de números de NF do áudio
+            # Suporta formatos: "343-34-434", "34,34,43", "32 324 43", etc
             import re
-            mensagem_limpa = re.sub(r'[,\s]+', '', mensagem)
-            # Se a mensagem original tinha apenas números, vírgulas e espaços, use a versão limpa
-            if re.match(r'^[\d,\s]+$', mensagem.strip()):
+            mensagem_limpa = re.sub(r'[-,\s]+', '', mensagem)
+            # Se a mensagem original tinha apenas números e separadores (-, vírgulas, espaços), use a versão limpa
+            if re.match(r'^[\d\-,\s]+$', mensagem.strip()):
+                logger.info(f"Áudio de NF detectado - Original: '{mensagem}' | Limpo: '{mensagem_limpa}'")
                 mensagem = mensagem_limpa
-                logger.info(f"Áudio de NF limpo: '{mensagem}'")
         else:
 
             message_content = message_data.get("message", {})
