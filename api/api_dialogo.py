@@ -192,6 +192,7 @@ class DialogoTransportadora(BaseTransportadora):
     def formatar_rastreamento(self, pedido: dict) -> str:
         """
         Formata os dados do pedido em mensagem para o usuário.
+        Mostra apenas o último evento (mais recente).
 
         Args:
             pedido: Dicionário com dados do pedido
@@ -220,24 +221,20 @@ class DialogoTransportadora(BaseTransportadora):
 
         mensagem += "\n📍 *HISTÓRICO DE RASTREAMENTO:*\n"
 
-        # Mostra todos os eventos em ordem reversa (mais recente primeiro)
-        for evento in reversed(eventos):
-            data = evento.get('data', '')
-            unidade = evento.get('unidade', '')
-            situacao = evento.get('situacao', '')
-            
-            # Extrai título da situação (primeira linha)
-            linhas_situacao = situacao.split('\n')
-            titulo = linhas_situacao[0] if linhas_situacao else situacao
-            
-            mensagem += f"\n📝 *{titulo}*\n"
-            mensagem += f"   🕒 {data}\n"
-            mensagem += f"   📍 {unidade}\n"
-            
-            # Adiciona detalhes se houver mais linhas
-            if len(linhas_situacao) > 1:
-                detalhes = '\n'.join(linhas_situacao[1:])
-                mensagem += f"   ℹ️ {detalhes}\n"
+        # Mostra apenas o último evento (mais recente)
+        ultimo_evento = eventos[-1]  # último da lista já é o mais recente
+        
+        data = ultimo_evento.get('data', '')
+        unidade = ultimo_evento.get('unidade', '')
+        situacao = ultimo_evento.get('situacao', '')
+        
+        # Extrai título da situação (primeira linha)
+        linhas_situacao = situacao.split('\n')
+        titulo = linhas_situacao[0] if linhas_situacao else situacao
+        
+        mensagem += f"\n📝 *{titulo}*\n"
+        mensagem += f"🕒 {data}\n"
+        mensagem += f"📍 {unidade}\n"
 
         return mensagem
 
