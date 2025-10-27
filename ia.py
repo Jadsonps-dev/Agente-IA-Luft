@@ -17,16 +17,16 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 ID_DEPOSITANTES = [2361178, 538607]
 
-with open('docs/api_wms_documentation.json', 'r', encoding='utf-8') as f:
+with open('docs/wms_documentation.json', 'r', encoding='utf-8') as f:
     API_DOCS = json.load(f)
 
 with open('docs/prompts_sistema.json', 'r', encoding='utf-8') as f:
     PROMPTS = json.load(f)
 
-with open('docs/query_nf_learning.json', 'r', encoding='utf-8') as f:
+with open('docs/query_consulta_nf_learning.json', 'r', encoding='utf-8') as f:
     LEARNING_NF = json.load(f)
 
-with open('docs/query_consulta_op_learning.json', 'r', encoding='utf-8') as f:
+with open('docs/query_analise_op_learning.json', 'r', encoding='utf-8') as f:
     LEARNING_OP = json.load(f)
 
 
@@ -329,11 +329,11 @@ def consultar_nota_fiscal(numero_nf):
     """
     # Limpar o número da NF removendo traços, espaços e outros caracteres especiais
     numero_nf = re.sub(r'[^0-9]', '', str(numero_nf))
-    
+
     if not numero_nf:
         logger.warning("Número da NF vazio após limpeza")
         return {'encontrado': False, 'numero_nf': 'inválido'}
-    
+
     data_fim = datetime.now().strftime("%d/%m/%Y")
     data_inicio = (datetime.now() - timedelta(days=90)).strftime("%d/%m/%Y")
 
