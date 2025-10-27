@@ -1,0 +1,29 @@
+- Status: EXPEDIDO
+- Transportadora: 🚚 DIÁLOG...
+INFO:utils.evolutionAPI:Endpoint: http://localhost:8080/message/sendText/Agente Luft
+INFO:routes.webhook:Mensagem enviada com sucesso: {'status': 'success', 'message_id': '3EB06E6FAB12CDB3F4EFA7CDC7C195125BA6A425', 'timestamp': 1761575627}
+INFO:routes.webhook:Webhook recebido: 2025-10-27T11:33:50.762511
+INFO:routes.webhook:Processando mensagem de 553584595502: 00449498042
+INFO:werkzeug:172.34.6.154 - - [27/Oct/2025 11:33:50] "POST /webhook HTTP/1.1" 200 -
+INFO:ia:✅ CPF detectado: 00449498042
+INFO:ia:📦 Mensagem detectada como CPF - processando rastreamento
+INFO:ia:📖 Contexto NF recuperado para 553584595502: {'numero_nf': 2551805, 'status': 'EXPEDIDO', 'transportadora': 'DIÁLOGO LOGÍSTICA INTELIGENTE LTDA - EPP.', 'timestamp': '2025-10-27T11:33:42.557185'}
+INFO:ia:🔍 Rastreando NF 2551805 com CPF fornecido via dialogo
+INFO:api.api_dialogo:🔍 Consultando Dialogo com CPF: 00449498042
+INFO:api.api_dialogo:📄 Buscando detalhes em: https://ssw.inf.br/2/ssw_SSWDetalhado?id=tJGr2NKo2egLxTyTeD1c0sH+1vy+YuEvUQ==&md=pbOmVLMl02nJg6PFp8T4gA==
+INFO:api.api_dialogo:✅ Dados da Dialogo obtidos com sucesso
+INFO:api.api_dialogo:🔍 Total de tabelas encontradas: 3
+INFO:api.api_dialogo:   ✅ Destinatário extraído: Julia **** ******
+INFO:api.api_dialogo:   ✅ NF extraída: 2551805
+INFO:api.api_dialogo:   ✅ Pedido extraído: 2551805
+WARNING:api.api_dialogo:⚠️ Pedido ignorado - NF: 2551805, Eventos: 0
+WARNING:api.api_dialogo:⚠️ Pedido ignorado - NF: , Eventos: 6
+WARNING:api.api_dialogo:⚠️ Pedido ignorado - NF: , Eventos: 0
+INFO:api.api_dialogo:📋 Total de pedidos extraídos: 0
+WARNING:api.api_dialogo:⚠️ NF 2551805 não encontrada nos pedidos retornados
+Tentando deletar chave: contexto_nf:553584595502
+INFO:routes.webhook:Resposta da IA: ❌ Pedido 2551805 não encontrado no rastreamento da Dialogo
+INFO:utils.evolutionAPI:Enviando mensagem para 553584595502 na instância Agente Luft
+INFO:utils.evolutionAPI:Mensagem: ❌ Pedido 2551805 não encontrado no rastreamento da Dialogo...
+INFO:utils.evolutionAPI:Endpoint: http://localhost:8080/message/sendText/Agente Luft
+INFO:routes.webhook:Mensagem enviada com sucesso: {'status': 'success', 'message_id': '3EB028306A8852E6E36F6A89E30AE476B38995A9', 'timestamp': 1761575649}

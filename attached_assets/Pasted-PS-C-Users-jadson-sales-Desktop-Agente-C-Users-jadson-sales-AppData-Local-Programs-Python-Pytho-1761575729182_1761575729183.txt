@@ -1,0 +1,64 @@
+PS C:\Users\jadson.sales\Desktop\Agente> & C:\Users\jadson.sales\AppData\Local\Programs\Python\Python313\python.exe c:/Users/jadson.sales/Desktop/Agente/api/api_dialogo.py
+
+Informações detalhadas do rastreio:
+
+Rastreamento detalhado - SSW Sistemas
+Rastreamento detalhado
+Histórico detalhado das ocorrências é mostrado nesta tela.
+Na pesquisa pelo cliente destinatário, também é possível interagir diretamente com a transportadora através do link Fale Conosco, podendo ainda apontar o local da entrega no mapa, facilitando a localização do endereço.
+Caso o cliente informado na tela inicial do rastreamento, também seja o pagador do frete, são disponibilizados links para visualização do DACTE, Arquivo XML, Fatura e Comprovante de Entrega.
+Rastreamento detalhado
+?
+Destinatário:
+Julia **** ******
+N Coleta:
+N Fiscal:
+2 2551805
+N Pedido:
+6337305149589
+Data/Hora
+Unidade
+Situação
+23/10/25
+21:29
+EXTREMA / MG
+DLG EXT
+DOCUMENTO DE TRANSPORTE EMITIDO
+CT-e autorizado com 1 volume e 2 Kg. Destino: RS/PORTO ALEGRE. Previsao de entrega: 27/10/25.
+24/10/25
+04:11
+JUNDIAI / SP
+DLG JND
+SAIDA DE UNIDADE
+Saida da unidade JUNDIAI em 24/10/25, 04:11h. Previsao de chegada na unidade CACHOEIRINHA em 25/10/25, 02:11h.
+25/10/25
+02:40
+CACHOEIRINHA / RS
+DLG PA1
+CHEGADA EM UNIDADE
+Chegada na unidade CACHOEIRINHA em 25/10/25, 02:40h.
+25/10/25
+06:15
+CACHOEIRINHA / RS
+DLG PA1
+SAIDA PARA ENTREGA
+Saida para entrega na cidade de PORTO ALEGRE.
+25/10/25
+08:46
+CACHOEIRINHA / RS
+DLG PA1
+PRIMEIRA TENTATIVA DE ENTREGA
+Observacao:  Complemento: Ja falei com o cliente  (SSW WebAPI Parceiro).
+25/10/25
+11:02
+CACHOEIRINHA / RS
+DLG PA1
+MERCADORIA ENTREGUE
+Nome do recebedor: JULIA LIMA VIEIRA Documento do recebedor CPF: ***.***.980-42 Relacao com o destinatario: Proprio destinatario Comentario:  (SSW WebAPI Parceiro) Comprovante registrado no SEFAZ-MG - Protocolo: ********9070133 - 25/10/25 19:33 (cte.fazenda.gov.br).  DOC N.: CPF: ***.***.980-42.
+Fale conosco
+Estamos transportando a sua mercadoria:
+Dialogo Logistica
+E-mail:
+Fechar
+Processado por ssw.inf.br
+PS C:\Users\jadson.sales\Desktop\Agente> 
