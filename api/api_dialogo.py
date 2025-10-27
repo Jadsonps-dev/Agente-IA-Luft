@@ -230,15 +230,15 @@ class DialogoTransportadora(BaseTransportadora):
         
         # Extrai apenas o status principal (primeira linha)
         linhas_situacao = situacao.split('\n')
-        titulo_status = linhas_situacao[0] if linhas_situacao else situacao
+        titulo_completo = linhas_situacao[0] if linhas_situacao else situacao
         
-        # Extrai status e nome do recebedor
-        status_limpo = titulo_status.split('Nome do recebedor:')[0].strip()
+        # Extrai status sem o nome do recebedor
+        status_limpo = titulo_completo.split('Nome do recebedor:')[0].strip()
         
-        # Extrai nome do recebedor (se existir)
+        # Extrai nome do recebedor (se existir) - busca em toda a situação
         nome_recebedor = ""
-        if 'Nome do recebedor:' in titulo_status:
-            match = re.search(r'Nome do recebedor:\s*([A-Z\s]+)', titulo_status)
+        if 'Nome do recebedor:' in situacao:
+            match = re.search(r'Nome do recebedor:\s*([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*)', situacao, re.IGNORECASE)
             if match:
                 nome_completo = match.group(1).strip()
                 # Pega apenas os 2 primeiros nomes
