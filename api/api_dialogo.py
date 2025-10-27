@@ -95,10 +95,15 @@ class DialogoTransportadora(BaseTransportadora):
         soup = BeautifulSoup(html, 'html.parser')
         pedidos = []
 
+        # DEBUG: Log do HTML recebido
+        logger.debug(f"📄 HTML recebido (primeiros 500 chars): {html[:500]}")
+        
         # Busca todas as tabelas de rastreamento
         tabelas = soup.find_all('table')
+        logger.info(f"🔍 Total de tabelas encontradas: {len(tabelas)}")
 
-        for tabela in tabelas:
+        for idx, tabela in enumerate(tabelas):
+            logger.debug(f"📊 Processando tabela {idx + 1}/{len(tabelas)}")
             linhas = tabela.find_all('tr')
 
             pedido = {
@@ -110,24 +115,34 @@ class DialogoTransportadora(BaseTransportadora):
 
             for linha in linhas:
                 texto = linha.get_text(strip=True)
+                
+                # DEBUG: Mostra o texto de cada linha
+                if texto and len(texto) > 5:
+                    logger.debug(f"   📝 Linha: {texto[:100]}")
 
                 # Extrai número da nota fiscal
-                if 'N Fiscal:' in texto or 'Fiscal:' in texto:
+                if 'N Fiscal:' in texto or 'Fiscal:' in texto or 'NF:' in texto or 'Nota' in texto:
+                    logger.debug(f"   🧾 Linha com NF detectada: {texto}")
                     match = re.search(r'(\d+)', texto)
                     if match:
                         pedido['numero_nf'] = match.group(1)
+                        logger.info(f"   ✅ NF extraída: {pedido['numero_nf']}")
 
                 # Extrai número do pedido
-                if 'N Pedido:' in texto or 'Pedido:' in texto:
+                if 'N Pedido:' in texto or 'Pedido:' in texto or 'Ped:' in texto:
+                    logger.debug(f"   📦 Linha com Pedido detectada: {texto}")
                     match = re.search(r'(\d+)', texto)
                     if match:
                         pedido['numero_pedido'] = match.group(1)
+                        logger.info(f"   ✅ Pedido extraído: {pedido['numero_pedido']}")
 
                 # Extrai destinatário
-                if 'Destinatário:' in texto or 'Destinatario:' in texto:
+                if 'Destinatário:' in texto or 'Destinatario:' in texto or 'Dest:' in texto:
+                    logger.debug(f"   👤 Linha com Destinatário detectada: {texto}")
                     partes = texto.split(':', 1)
                     if len(partes) > 1:
                         pedido['destinatario'] = partes[1].strip()
+                        logger.info(f"   ✅ Destinatário extraído: {pedido['destinatario']}")
 
                 # Extrai eventos (data, unidade, situação)
                 colunas = linha.find_all('td')
@@ -146,7 +161,14 @@ class DialogoTransportadora(BaseTransportadora):
             if pedido['numero_nf'] and pedido['eventos']:
                 logger.info(f"✅ Pedido extraído - NF: {pedido['numero_nf']}, Pedido: {pedido['numero_pedido']}")
                 pedidos.append(pedido)
+            else:
+                logger.warning(f"⚠️ Pedido ignorado - NF: {pedido.get('numero_nf', 'N/A')}, Eventos: {len(pedido.get('eventos', []))}")
 
+        logger.info(f"📋 Total de pedidos extraídos: {len(pedidos)}")
+        if pedidos:
+            for p in pedidos:
+                logger.info(f"   - NF: {p.get('numero_nf')}, Pedido: {p.get('numero_pedido')}")
+        
         return pedidos
 
     def buscar_pedido_especifico(self, cpf: str, numero_nf: str) -> dict:
