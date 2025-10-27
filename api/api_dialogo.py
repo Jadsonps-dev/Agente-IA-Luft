@@ -50,7 +50,7 @@ class DialogoTransportadora(BaseTransportadora):
             response = requests.post(self.url_inicial, headers=headers, data=payload, timeout=30)
             response.encoding = "iso-8859-1"
 
-            # Extrai ID e MD do onclick
+            # Extrai ID e MD do onclick para buscar detalhes
             soup = BeautifulSoup(response.text, "html.parser")
             onclick_regex = re.compile(r"opx\('/2/ssw_SSWDetalhado\?id=([^&]+)&md=([^']+)'\)")
             match = onclick_regex.search(response.text)
@@ -95,82 +95,72 @@ class DialogoTransportadora(BaseTransportadora):
         soup = BeautifulSoup(html, 'html.parser')
         pedidos = []
 
-        # DEBUG: Log do HTML recebido
-        logger.debug(f"📄 HTML recebido (primeiros 500 chars): {html[:500]}")
-        
-        # Busca todas as tabelas de rastreamento
+        # Extrai texto completo separado por linhas
+        conteudo = soup.get_text(separator="\n", strip=True)
+        linhas = [linha.strip() for linha in conteudo.split("\n") if linha.strip()]
+
+        logger.debug(f"📄 Total de linhas extraídas: {len(linhas)}")
+
+        pedido = {
+            'numero_nf': '',
+            'numero_pedido': '',
+            'destinatario': '',
+            'eventos': []
+        }
+
+        # Extrai informações principais
+        for i, linha in enumerate(linhas):
+            # Destinatário
+            if linha == "Destinatário:" and i + 1 < len(linhas):
+                pedido['destinatario'] = linhas[i + 1]
+                logger.info(f"   ✅ Destinatário: {pedido['destinatario']}")
+
+            # N Fiscal
+            if linha == "N Fiscal:" and i + 1 < len(linhas):
+                # A próxima linha pode ter formato "2 2551805"
+                nf_linha = linhas[i + 1]
+                match = re.search(r'(\d{6,})', nf_linha)
+                if match:
+                    pedido['numero_nf'] = match.group(1)
+                    logger.info(f"   ✅ NF: {pedido['numero_nf']}")
+
+            # N Pedido
+            if linha == "N Pedido:" and i + 1 < len(linhas):
+                match = re.search(r'(\d{6,})', linhas[i + 1])
+                if match:
+                    pedido['numero_pedido'] = match.group(1)
+                    logger.info(f"   ✅ Pedido: {pedido['numero_pedido']}")
+
+        # Extrai eventos (tabela com data/hora, unidade, situação)
         tabelas = soup.find_all('table')
-        logger.info(f"🔍 Total de tabelas encontradas: {len(tabelas)}")
-
-        for idx, tabela in enumerate(tabelas):
-            logger.debug(f"📊 Processando tabela {idx + 1}/{len(tabelas)}")
-            linhas = tabela.find_all('tr')
-
-            pedido = {
-                'numero_nf': '',
-                'numero_pedido': '',
-                'destinatario': '',
-                'eventos': []
-            }
-
-            for linha in linhas:
-                texto = linha.get_text(strip=True)
+        for tabela in tabelas:
+            linhas_tabela = tabela.find_all('tr')
+            
+            for linha_tr in linhas_tabela:
+                colunas = linha_tr.find_all('td')
                 
-                # DEBUG: Mostra o texto de cada linha
-                if texto and len(texto) > 5:
-                    logger.debug(f"   📝 Linha: {texto[:100]}")
-
-                # Extrai número da nota fiscal - busca sequência de 6+ dígitos
-                if 'N Fiscal:' in texto or 'Fiscal:' in texto or 'NF:' in texto or 'Nota' in texto:
-                    logger.debug(f"   🧾 Linha com NF detectada: {texto}")
-                    # Busca por sequência de 6 ou mais dígitos consecutivos
-                    match = re.search(r'(\d{6,})', texto)
-                    if match:
-                        pedido['numero_nf'] = match.group(1)
-                        logger.info(f"   ✅ NF extraída: {pedido['numero_nf']}")
-
-                # Extrai número do pedido - busca sequência de 6+ dígitos
-                if 'N Pedido:' in texto or 'Pedido:' in texto or 'Ped:' in texto or 'Nº Pedido' in texto:
-                    logger.debug(f"   📦 Linha com Pedido detectada: {texto}")
-                    # Busca por sequência de 6 ou mais dígitos consecutivos
-                    match = re.search(r'(\d{6,})', texto)
-                    if match:
-                        pedido['numero_pedido'] = match.group(1)
-                        logger.info(f"   ✅ Pedido extraído: {pedido['numero_pedido']}")
-
-                # Extrai destinatário
-                if 'Destinatário:' in texto or 'Destinatario:' in texto or 'Dest:' in texto:
-                    logger.debug(f"   👤 Linha com Destinatário detectada: {texto}")
-                    partes = texto.split(':', 1)
-                    if len(partes) > 1:
-                        pedido['destinatario'] = partes[1].strip()
-                        logger.info(f"   ✅ Destinatário extraído: {pedido['destinatario']}")
-
-                # Extrai eventos (data, unidade, situação)
-                colunas = linha.find_all('td')
+                # Deve ter pelo menos 3 colunas: data, unidade, situação
                 if len(colunas) >= 3:
                     data = colunas[0].get_text(strip=True)
                     unidade = colunas[1].get_text(strip=True)
-                    situacao = colunas[2].get_text(strip=True)
-
-                    # Valida se é realmente um evento (data deve ter formato de data)
-                    if data and unidade and situacao and re.search(r'\d{2}/\d{2}', data):
+                    situacao_completa = colunas[2].get_text(separator=" ", strip=True)
+                    
+                    # Valida se é linha de evento (data com formato dd/mm/yy)
+                    if re.search(r'\d{2}/\d{2}/\d{2}', data):
                         pedido['eventos'].append({
                             'data': data,
                             'unidade': unidade,
-                            'situacao': situacao
+                            'situacao': situacao_completa
                         })
+                        logger.debug(f"   📍 Evento: {data} - {unidade}")
 
-            if pedido['numero_nf'] and pedido['eventos']:
-                logger.info(f"✅ Pedido extraído - NF: {pedido['numero_nf']}, Pedido: {pedido['numero_pedido']}")
-                pedidos.append(pedido)
-            else:
-                logger.warning(f"⚠️ Pedido ignorado - NF: {pedido.get('numero_nf', 'N/A')}, Eventos: {len(pedido.get('eventos', []))}")
+        if pedido['numero_nf'] and pedido['eventos']:
+            logger.info(f"✅ Pedido completo - NF: {pedido['numero_nf']}, Eventos: {len(pedido['eventos'])}")
+            pedidos.append(pedido)
+        else:
+            logger.warning(f"⚠️ Dados incompletos - NF: {pedido.get('numero_nf', 'N/A')}, Eventos: {len(pedido.get('eventos', []))}")
 
         logger.info(f"📋 Total de pedidos extraídos: {len(pedidos)}")
-        if pedidos:
-            for p in pedidos:
-                logger.info(f"   - NF: {p.get('numero_nf')}, Pedido: {p.get('numero_pedido')}")
         
         return pedidos
 
@@ -213,31 +203,41 @@ class DialogoTransportadora(BaseTransportadora):
             return "❌ Pedido não encontrado"
 
         mensagem = f"📦 *RASTREAMENTO - DIALOGO LOGÍSTICA*\n\n"
+        
+        if pedido.get('destinatario'):
+            mensagem += f"👤 *Destinatário:* {pedido['destinatario']}\n"
+        
         mensagem += f"🧾 *Nota Fiscal:* {pedido.get('numero_nf', 'N/A')}\n"
         
         if pedido.get('numero_pedido'):
             mensagem += f"🔢 *Pedido:* {pedido['numero_pedido']}\n"
 
-        if pedido.get('destinatario'):
-            mensagem += f"👤 *Destinatário:* {pedido['destinatario']}\n"
-
-        mensagem += "\n📍 *Histórico de Movimentação:*\n\n"
-
         eventos = pedido.get('eventos', [])
 
-        # Mostra último evento em destaque
-        if eventos:
-            ultimo = eventos[-1]
-            mensagem += f"🔹 *SITUAÇÃO ATUAL*\n"
-            mensagem += f"   {ultimo.get('data', '')} - {ultimo.get('unidade', '')}\n"
-            mensagem += f"   {ultimo.get('situacao', '')}\n\n"
+        if not eventos:
+            mensagem += "\n⚠️ Nenhum evento de rastreamento encontrado."
+            return mensagem
 
-        # Mostra histórico completo
-        if len(eventos) > 1:
-            mensagem += "📋 *Histórico completo:*\n"
-            for evento in reversed(eventos[:-1]):
-                mensagem += f"\n• {evento.get('data', '')} - {evento.get('unidade', '')}\n"
-                mensagem += f"  {evento.get('situacao', '')}\n"
+        mensagem += "\n📍 *HISTÓRICO DE RASTREAMENTO:*\n"
+
+        # Mostra todos os eventos em ordem reversa (mais recente primeiro)
+        for evento in reversed(eventos):
+            data = evento.get('data', '')
+            unidade = evento.get('unidade', '')
+            situacao = evento.get('situacao', '')
+            
+            # Extrai título da situação (primeira linha)
+            linhas_situacao = situacao.split('\n')
+            titulo = linhas_situacao[0] if linhas_situacao else situacao
+            
+            mensagem += f"\n📝 *{titulo}*\n"
+            mensagem += f"   🕒 {data}\n"
+            mensagem += f"   📍 {unidade}\n"
+            
+            # Adiciona detalhes se houver mais linhas
+            if len(linhas_situacao) > 1:
+                detalhes = '\n'.join(linhas_situacao[1:])
+                mensagem += f"   ℹ️ {detalhes}\n"
 
         return mensagem
 
