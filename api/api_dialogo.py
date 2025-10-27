@@ -14,10 +14,8 @@ class DialogoTransportadora(BaseTransportadora):
     """Implementação para Dialogo Logística"""
 
     def __init__(self):
-        super().__init__(
-            nome="Dialogo",
-            url_base="https://www.dialogotransportes.com.br"
-        )
+        super().__init__(nome="Dialogo")
+        self.url_base = "https://www.dialogotransportes.com.br"
 
     def consultar_por_cpf(self, cpf: str) -> str:
         """
