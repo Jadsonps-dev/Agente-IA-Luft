@@ -228,16 +228,23 @@ class DialogoTransportadora(BaseTransportadora):
         unidade = ultimo_evento.get('unidade', '')
         situacao = ultimo_evento.get('situacao', '')
         
-        # Extrai apenas o status principal (primeira linha até "Nome do recebedor" ou nova linha)
+        # Extrai apenas o status principal (primeira linha)
         linhas_situacao = situacao.split('\n')
         titulo = linhas_situacao[0] if linhas_situacao else situacao
         
-        # Remove detalhes extras do título (após "Nome do recebedor:", "Documento do recebedor", etc)
+        # Remove detalhes extras e mantém apenas os 2 primeiros nomes do recebedor
         if 'Nome do recebedor:' in titulo:
-            # Extrai apenas até o nome do recebedor
-            match = re.search(r'(.*?Nome do recebedor:\s*[A-Z\s]+)', titulo)
+            # Extrai o status e o nome do recebedor
+            match = re.search(r'(.*?Nome do recebedor:\s*)([A-Z\s]+)', titulo)
             if match:
-                titulo = match.group(1).strip()
+                status_parte = match.group(1)  # "MERCADORIA ENTREGUE Nome do recebedor: "
+                nome_completo = match.group(2).strip()  # "JULIA LIMA VIEIRA"
+                
+                # Pega apenas os 2 primeiros nomes
+                partes_nome = nome_completo.split()
+                nome_reduzido = ' '.join(partes_nome[:2]) if len(partes_nome) >= 2 else nome_completo
+                
+                titulo = f"{status_parte}{nome_reduzido}"
         
         # Formata data/hora: adiciona espaço entre data e hora
         # Formato original: "25/10/2511:02" -> "25/10/25 11:02"
