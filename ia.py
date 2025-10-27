@@ -243,7 +243,7 @@ def eh_cpf(mensagem: str) -> bool:
     return False
 
 
-def salvar_contexto_nf(sender: str, numero_nf: str, status: str):
+def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora: str = None):
     """
     Salva contexto da última NF consultada para rastreamento posterior.
     
@@ -251,6 +251,7 @@ def salvar_contexto_nf(sender: str, numero_nf: str, status: str):
         sender: Número do remetente
         numero_nf: Número da nota fiscal
         status: Status do pedido
+        transportadora: Nome da transportadora retornada do WMS
     """
     if not sender:
         return
@@ -259,12 +260,13 @@ def salvar_contexto_nf(sender: str, numero_nf: str, status: str):
     contexto = {
         "numero_nf": numero_nf,
         "status": status,
+        "transportadora": transportadora,
         "timestamp": datetime.now().isoformat()
     }
     
     # Expira em 10 minutos
     redis_client.set(contexto_key, contexto, ex=600)
-    logger.info(f"💾 Contexto NF salvo para {sender}: NF={numero_nf}, Status={status}")
+    logger.info(f"💾 Contexto NF salvo para {sender}: NF={numero_nf}, Status={status}, Transportadora={transportadora}")
 
 
 def obter_contexto_nf(sender: str):
@@ -309,15 +311,27 @@ def processar_rastreamento_cpf(cpf: str, sender: str) -> str:
         
         numero_nf = contexto.get('numero_nf')
         status = contexto.get('status', '')
+        transportadora_nome = contexto.get('transportadora', '')
         
         # Verifica se o pedido está expedido
         if status != 'EXPEDIDO':
             return f"❌ O pedido {numero_nf} não está com status EXPEDIDO. Status atual: {status}"
         
-        logger.info(f"🔍 Rastreando NF {numero_nf} com CPF fornecido")
+        # Detecta qual transportadora usar baseado no nome retornado do WMS
+        transportadora_key = 'dialogo'  # padrão
         
-        # Chama API de rastreamento (por padrão Dialogo)
-        resultado = rastrear_pedido(cpf, numero_nf, transportadora='dialogo')
+        if transportadora_nome:
+            nome_lower = transportadora_nome.lower()
+            if 'dialogo' in nome_lower or 'diálogo' in nome_lower:
+                transportadora_key = 'dialogo'
+            # Adicionar outras transportadoras aqui no futuro
+            # elif 'jadlog' in nome_lower:
+            #     transportadora_key = 'jadlog'
+        
+        logger.info(f"🔍 Rastreando NF {numero_nf} com CPF fornecido via {transportadora_key}")
+        
+        # Chama API de rastreamento
+        resultado = rastrear_pedido(cpf, numero_nf, transportadora=transportadora_key)
         
         # Limpa contexto após usar
         redis_client.delete(f"contexto_nf:{sender}")
@@ -356,10 +370,11 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
 
                 if dados_nf and dados_nf.get('encontrado'):
                     status_nf = dados_nf['status']
+                    transportadora_nf = dados_nf.get('transportadora', '')
                     
                     # Salva contexto se status = EXPEDIDO
                     if status_nf == 'EXPEDIDO' and sender:
-                        salvar_contexto_nf(sender, dados_nf['numero_nf'], status_nf)
+                        salvar_contexto_nf(sender, dados_nf['numero_nf'], status_nf, transportadora_nf)
                     
                     # Monta contexto base
                     contexto = f"""

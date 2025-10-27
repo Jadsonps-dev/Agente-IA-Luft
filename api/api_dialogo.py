@@ -1,3 +1,4 @@
+
 """
 API de rastreamento para Dialogo Logística.
 """
@@ -15,7 +16,8 @@ class DialogoTransportadora(BaseTransportadora):
 
     def __init__(self):
         super().__init__(nome="Dialogo")
-        self.url_base = "https://www.dialogotransportes.com.br"
+        self.url_inicial = "https://ssw.inf.br/2/ssw_resultSSW_dest"
+        self.url_detalhado_base = "https://ssw.inf.br/2/ssw_SSWDetalhado"
 
     def consultar_por_cpf(self, cpf: str) -> str:
         """
@@ -29,24 +31,52 @@ class DialogoTransportadora(BaseTransportadora):
         """
         cpf_limpo = re.sub(r'\D', '', cpf)
 
-        url = f"{self.url_base}/rastreamento/"
-
-        payload = {
-            'tipo': 'destinatario',
-            'valor': cpf_limpo
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Mozilla/5.0",
+            "Origin": "https://dialogologistica.com.br",
+            "Referer": "https://dialogologistica.com.br/",
         }
 
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        payload = {
+            "urlori": "https://dialogologistica.com.br/rastreie-seu-pedido",
+            "sigla_emp": "DLG",
+            "cnpjdest": cpf_limpo
         }
 
         try:
-            response = requests.post(url, data=payload, headers=headers, timeout=30)
-            response.raise_for_status()
-            return response.text
+            logger.info(f"🔍 Consultando Dialogo com CPF: {cpf_limpo}")
+            
+            response = requests.post(self.url_inicial, headers=headers, data=payload, timeout=30)
+            response.encoding = "iso-8859-1"
+
+            # Extrai ID e MD do onclick
+            soup = BeautifulSoup(response.text, "html.parser")
+            onclick_regex = re.compile(r"opx\('/2/ssw_SSWDetalhado\?id=([^&]+)&md=([^']+)'\)")
+            match = onclick_regex.search(response.text)
+
+            if not match:
+                logger.warning("⚠️ Nenhum link de detalhes encontrado na resposta")
+                return ""
+
+            id_param, md_param = match.groups()
+            url_detalhado = f"{self.url_detalhado_base}?id={id_param}&md={md_param}"
+
+            logger.info(f"📄 Buscando detalhes em: {url_detalhado}")
+
+            headers_detalhado = {
+                "User-Agent": "Mozilla/5.0",
+                "Referer": self.url_inicial,
+            }
+
+            resp_detalhado = requests.get(url_detalhado, headers=headers_detalhado, timeout=30)
+            resp_detalhado.encoding = "iso-8859-1"
+
+            logger.info("✅ Dados da Dialogo obtidos com sucesso")
+            return resp_detalhado.text
 
         except Exception as e:
-            logger.error(f"Erro ao consultar Dialogo: {str(e)}")
+            logger.error(f"❌ Erro ao consultar Dialogo: {str(e)}")
             return ""
 
     def extrair_pedidos(self, html: str) -> list:
@@ -73,7 +103,7 @@ class DialogoTransportadora(BaseTransportadora):
 
             pedido = {
                 'numero_nf': '',
-                'numero_coleta': '',
+                'numero_pedido': '',
                 'destinatario': '',
                 'eventos': []
             }
@@ -86,6 +116,12 @@ class DialogoTransportadora(BaseTransportadora):
                     match = re.search(r'(\d+)', texto)
                     if match:
                         pedido['numero_nf'] = match.group(1)
+
+                # Extrai número do pedido
+                if 'N Pedido:' in texto or 'Pedido:' in texto:
+                    match = re.search(r'(\d+)', texto)
+                    if match:
+                        pedido['numero_pedido'] = match.group(1)
 
                 # Extrai destinatário
                 if 'Destinatário:' in texto or 'Destinatario:' in texto:
@@ -108,6 +144,7 @@ class DialogoTransportadora(BaseTransportadora):
                         })
 
             if pedido['numero_nf'] and pedido['eventos']:
+                logger.info(f"✅ Pedido extraído - NF: {pedido['numero_nf']}, Pedido: {pedido['numero_pedido']}")
                 pedidos.append(pedido)
 
         return pedidos
@@ -131,8 +168,10 @@ class DialogoTransportadora(BaseTransportadora):
         for pedido in pedidos:
             pedido_nf_limpo = re.sub(r'\D', '', str(pedido.get('numero_nf', '')))
             if pedido_nf_limpo == numero_nf_limpo:
+                logger.info(f"✅ Pedido NF {numero_nf} encontrado!")
                 return pedido
 
+        logger.warning(f"⚠️ NF {numero_nf} não encontrada nos pedidos retornados")
         return None
 
     def formatar_rastreamento(self, pedido: dict) -> str:
@@ -148,26 +187,29 @@ class DialogoTransportadora(BaseTransportadora):
         if not pedido:
             return "❌ Pedido não encontrado"
 
-        mensagem = f"📦 **Rastreamento - {self.nome}**\n\n"
-        mensagem += f"🧾 **Nota Fiscal:** {pedido.get('numero_nf', 'N/A')}\n"
+        mensagem = f"📦 *RASTREAMENTO - DIALOGO LOGÍSTICA*\n\n"
+        mensagem += f"🧾 *Nota Fiscal:* {pedido.get('numero_nf', 'N/A')}\n"
+        
+        if pedido.get('numero_pedido'):
+            mensagem += f"🔢 *Pedido:* {pedido['numero_pedido']}\n"
 
         if pedido.get('destinatario'):
-            mensagem += f"👤 **Destinatário:** {pedido['destinatario']}\n"
+            mensagem += f"👤 *Destinatário:* {pedido['destinatario']}\n"
 
-        mensagem += "\n📍 **Histórico de Movimentação:**\n\n"
+        mensagem += "\n📍 *Histórico de Movimentação:*\n\n"
 
         eventos = pedido.get('eventos', [])
 
         # Mostra último evento em destaque
         if eventos:
             ultimo = eventos[-1]
-            mensagem += f"🔹 **SITUAÇÃO ATUAL**\n"
+            mensagem += f"🔹 *SITUAÇÃO ATUAL*\n"
             mensagem += f"   {ultimo.get('data', '')} - {ultimo.get('unidade', '')}\n"
             mensagem += f"   {ultimo.get('situacao', '')}\n\n"
 
         # Mostra histórico completo
         if len(eventos) > 1:
-            mensagem += "📋 **Histórico completo:**\n"
+            mensagem += "📋 *Histórico completo:*\n"
             for evento in reversed(eventos[:-1]):
                 mensagem += f"\n• {evento.get('data', '')} - {evento.get('unidade', '')}\n"
                 mensagem += f"  {evento.get('situacao', '')}\n"
