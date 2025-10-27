@@ -1,0 +1,57 @@
+INFO:routes.webhook:Webhook recebido: 2025-10-27T11:29:13.038745
+INFO:routes.webhook:Processando mensagem de 553584595502: 2551805
+INFO:werkzeug:172.34.6.154 - - [27/Oct/2025 11:29:13] "POST /webhook HTTP/1.1" 200 -
+INFO:httpx:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:ia:OpenAI analisou: {'tipo_consulta': 'nota_fiscal', 'numero_nf': '2551805'}
+INFO:ia:IA detectou busca de NF: 2551805
+INFO:ia:Consultando nota fiscal 2551805 no depositante 2361178
+EstruturaSQL inicializada com query personalizada
+Fazendo login na API...
+Login realizado com sucesso!
+Período da consulta: 29/07/2025 a 27/10/2025
+Fazendo requisição para GridService...
+Tempo da requisição: 0.52 segundos
+Requisição API realizada com sucesso!
+INFO:ia:Dados da NF 2551805 encontrados no depositante 2361178
+Sessão HTTP fechada
+INFO:ia:💾 Contexto NF salvo para 553584595502: NF=2551805, Status=EXPEDIDO, Transportadora=DIÁLOGO LOGÍSTICA INTELIGENTE LTDA - EPP.
+INFO:httpx:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:routes.webhook:Resposta da IA: Aqui estão as informações da sua nota fiscal 2551805:
+
+- Status: EXPEDIDO
+- Transportadora: 🚚 DIÁLOGO LOGÍSTICA INTELIGENTE LTDA - EPP
+- Código de Rastreio: ✅ 6337305149589
+
+📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário.
+INFO:utils.evolutionAPI:Enviando mensagem para 553584595502 na instância Agente Luft
+INFO:utils.evolutionAPI:Mensagem: Aqui estão as informações da sua nota fiscal 2551805:
+
+- Status: EXPEDIDO
+- Transportadora: 🚚 DIÁLOG...
+INFO:utils.evolutionAPI:Endpoint: http://localhost:8080/message/sendText/Agente Luft
+INFO:routes.webhook:Mensagem enviada com sucesso: {'status': 'success', 'message_id': '3EB0DD2BC0B0595054EA5A3DD4B76922A3547403', 'timestamp': 1761575377}
+INFO:routes.webhook:Webhook recebido: 2025-10-27T11:29:46.805164
+INFO:routes.webhook:Processando mensagem de 553584595502: 00449498042
+INFO:werkzeug:172.34.6.154 - - [27/Oct/2025 11:29:46] "POST /webhook HTTP/1.1" 200 -
+INFO:ia:✅ CPF detectado: 00449498042
+INFO:ia:📦 Mensagem detectada como CPF - processando rastreamento
+INFO:ia:📖 Contexto NF recuperado para 553584595502: {'numero_nf': 2551805, 'status': 'EXPEDIDO', 'transportadora': 'DIÁLOGO LOGÍSTICA INTELIGENTE LTDA - EPP.', 'timestamp': '2025-10-27T11:29:31.631612'}
+INFO:ia:🔍 Rastreando NF 2551805 com CPF fornecido via dialogo
+INFO:api.api_dialogo:🔍 Consultando Dialogo com CPF: 00449498042
+INFO:api.api_dialogo:📄 Buscando detalhes em: https://ssw.inf.br/2/ssw_SSWDetalhado?id=tJGr2NKo2egLxTyTeD1c0sH+1vy+YuEvUQ==&md=pbOmVLMl02nJg6PFp8T4gA==
+INFO:api.api_dialogo:✅ Dados da Dialogo obtidos com sucesso
+INFO:api.api_dialogo:🔍 Total de tabelas encontradas: 3
+INFO:api.api_dialogo:   ✅ Destinatário extraído: Julia **** ******
+INFO:api.api_dialogo:   ✅ NF extraída: 2
+INFO:api.api_dialogo:   ✅ Pedido extraído: 2
+WARNING:api.api_dialogo:⚠️ Pedido ignorado - NF: 2, Eventos: 0
+WARNING:api.api_dialogo:⚠️ Pedido ignorado - NF: , Eventos: 7
+WARNING:api.api_dialogo:⚠️ Pedido ignorado - NF: , Eventos: 0
+INFO:api.api_dialogo:📋 Total de pedidos extraídos: 0
+WARNING:api.api_dialogo:⚠️ NF 2551805 não encontrada nos pedidos retornados
+Tentando deletar chave: contexto_nf:553584595502
+INFO:routes.webhook:Resposta da IA: ❌ Pedido 2551805 não encontrado no rastreamento da Dialogo
+INFO:utils.evolutionAPI:Enviando mensagem para 553584595502 na instância Agente Luft
+INFO:utils.evolutionAPI:Mensagem: ❌ Pedido 2551805 não encontrado no rastreamento da Dialogo...
+INFO:utils.evolutionAPI:Endpoint: http://localhost:8080/message/sendText/Agente Luft
+INFO:routes.webhook:Mensagem enviada com sucesso: {'status': 'success', 'message_id': '3EB02B75B81353316B6756D68A108FABE6640DEA', 'timestamp': 1761575405}
