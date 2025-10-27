@@ -27,8 +27,7 @@ with open('docs/prompts_sistema.json', 'r', encoding='utf-8') as f:
 with open('docs/query_consulta_nf_learning.json', 'r', encoding='utf-8') as f:
     LEARNING_NF = json.load(f)
 
-with open('docs/query_analise_op_learning.json', 'r', encoding='utf-8') as f:
-    LEARNING_OP = json.load(f)
+# LEARNING_OP removido - apenas consulta de NF
 
 
 def analisar_pergunta_com_ia(mensagem_usuario):
@@ -40,84 +39,48 @@ def analisar_pergunta_com_ia(mensagem_usuario):
         tools = [{
             "type": "function",
             "function": {
-                "name": "consultar_operacoes_wms",
+                "name": "consultar_nota_fiscal_wms",
                 "description":
-                "Consulta operações no WMS baseado na documentação completa da API",
+                "Busca informações de uma nota fiscal específica no WMS da Luft Solutions",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "tipo_consulta": {
                             "type":
                             "string",
-                            "enum":
-                            ["pedidos", "pecas", "nota_fiscal", "nenhuma"],
+                            "enum": ["nota_fiscal"],
                             "description":
-                            "Tipo: 'pedidos' = contar NOTA_FISCAL únicos | 'pecas' = somar QTDE | 'nota_fiscal' = buscar NF específica"
+                            "Tipo de consulta - sempre 'nota_fiscal'"
                         },
-                        "periodo": {
+                        "numero_nf": {
                             "type":
                             "string",
-                            "enum": [
-                                "hoje", "ontem", "semana", "mes",
-                                "personalizado"
-                            ],
                             "description":
-                            "Período da consulta"
-                        },
-                        "status_filtro": {
-                            "type":
-                            "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description":
-                            "Lista de status para filtrar. Valores possíveis: EXPEDIDO, IMPORTADO, FATURADO, PROCESSADO, CANCELADO, AG. SEPARAÇÃO, ENVIADO PARA FATURAMENTO"
-                        },
-                        "coluna_data": {
-                            "type":
-                            "string",
-                            "enum": ["PESADO_EM", "IMPORTADO_EM"],
-                            "description":
-                            "IMPORTANTE: Use PESADO_EM para status EXPEDIDO. Use IMPORTADO_EM para todos os outros status (IMPORTADO, FATURADO, CANCELADO, etc)"
-                        },
-                        "tipo_cliente": {
-                            "type":
-                            "string",
-                            "enum": ["B2B", "B2C", "TODOS"],
-                            "description":
-                            "Filtro de tipo de cliente: B2B, B2C ou TODOS"
+                            "Número da nota fiscal fornecido pelo usuário"
                         },
                         "empresa": {
                             "type":
                             "string",
                             "enum": ["Insider", "Alpargatas", "todas"],
                             "description":
-                            "Nome da empresa mencionada pelo usuário: Insider, Alpargatas ou todas se não especificou"
+                            "Nome da empresa mencionada: Insider, Alpargatas ou todas"
                         },
                         "id_depositante": {
                             "type":
                             "string",
                             "enum": ["2361178", "538607"],
                             "description":
-                            "ID do depositante: 2361178=Insider | 538607=Alpargatas. Se usuário mencionar Insider use 2361178, se mencionar Alpargatas use 538607"
-                        },
-                        "numero_nf": {
-                            "type":
-                            "string",
-                            "description":
-                            "Número da nota fiscal (apenas para tipo_consulta=nota_fiscal)"
+                            "ID do depositante: 2361178=Insider | 538607=Alpargatas"
                         }
                     },
-                    "required": ["tipo_consulta"]
+                    "required": ["tipo_consulta", "numero_nf"]
                 }
             }
         }]
 
         documentacao_completa = {
             "api_wms": API_DOCS,
-            "aprendizado_query_nf": LEARNING_NF,
-            "aprendizado_query_consulta_op": LEARNING_OP,
-            "instrucoes_aprendizado": PROMPTS['instrucoes_aprendizado']
+            "aprendizado_query_nf": LEARNING_NF
         }
 
         prompt_template = PROMPTS['prompts']['analisador_consultas']['template']

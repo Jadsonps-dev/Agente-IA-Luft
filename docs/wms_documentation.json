@@ -1,6 +1,6 @@
 {
   "api_name": "WMS Luft Solutions - API de Consultas",
-  "version": "2.0",
+  "version": "3.0",
   "queries": {
     "query_status_nf": {
       "description": "Consulta informações detalhadas de uma nota fiscal específica pelo número",
@@ -35,130 +35,6 @@
           "descricao": "Código de rastreamento da transportadora"
         }
       ]
-    },
-    "query_analise_op": {
-      "description": "Consulta operacional completa com filtros de data, status, tipo (B2B/B2C) e contagem/soma",
-      "parametros": {
-        "id_depositante": "ID do depositante (2361178 ou 538607)",
-        "data_inicio": "Data inicial no formato DD/MM/YYYY",
-        "data_fim": "Data final no formato DD/MM/YYYY"
-      },
-      "colunas_retorno": [
-        {
-          "indice": 0,
-          "nome": "NOTA_FISCAL",
-          "tipo": "string",
-          "descricao": "Número da nota fiscal - USAR PARA CONTAGEM de pedidos (contar valores únicos)",
-          "uso_contagem": true
-        },
-        {
-          "indice": 1,
-          "nome": "CLASSIFICACAO_CODIGO",
-          "tipo": "string",
-          "descricao": "Código de classificação do pedido",
-          "valores_possiveis": ["INSIDER_B2C", "INSIDER_B2B"],
-          "regra_filtro": {
-            "B2C": "Começa com INSIDER_B2C",
-            "B2B": "Começa com INSIDER_B2B"
-          }
-        },
-        {
-          "indice": 2,
-          "nome": "STATUS",
-          "tipo": "string",
-          "descricao": "Status atual da nota fiscal",
-          "valores_possiveis": ["FATURADO", "EXPEDIDO", "IMPORTADO", "CANCELADO", "AG. SEPARAÇÃO", "PROCESSADO", "ENVIADO PARA FATURAMENTO"]
-        },
-        {
-          "indice": 3,
-          "nome": "IMPORTADO_EM",
-          "tipo": "date",
-          "descricao": "Data que a nota fiscal foi integrada no sistema (data de entrada)",
-          "formato": "DD/MM/YYYY",
-          "quando_usar": "Use esta coluna para filtrar data quando o status for IMPORTADO ou quando perguntarem sobre entrada/importação"
-        },
-        {
-          "indice": 4,
-          "nome": "PESADO_EM",
-          "tipo": "date",
-          "descricao": "Data de pesagem/saída - indica quando o pedido foi EXPEDIDO (saiu)",
-          "formato": "DD/MM/YYYY",
-          "quando_usar": "Use esta coluna para filtrar data quando o status for EXPEDIDO ou quando perguntarem sobre saída/expedição"
-        },
-        {
-          "indice": 5,
-          "nome": "QTDE",
-          "tipo": "numeric",
-          "descricao": "Quantidade de peças em cada nota fiscal",
-          "uso_soma": true,
-          "quando_usar": "Somar esta coluna quando perguntarem sobre QUANTIDADE DE PEÇAS (não pedidos)"
-        },
-        {
-          "indice": 6,
-          "nome": "DEPOSITANTE",
-          "tipo": "string",
-          "descricao": "Nome da empresa/depositante"
-        }
-      ],
-      "regras_de_uso": {
-        "pedidos_expedidos": {
-          "pergunta": "Quantos pedidos foram expedidos hoje?",
-          "passos": [
-            "1. Filtrar coluna PESADO_EM pela data solicitada",
-            "2. Filtrar coluna STATUS = 'EXPEDIDO'",
-            "3. Contar NOTA_FISCAL únicos"
-          ]
-        },
-        "pedidos_importados": {
-          "pergunta": "Quantos pedidos foram importados hoje?",
-          "passos": [
-            "1. Filtrar coluna IMPORTADO_EM pela data solicitada",
-            "2. Filtrar coluna STATUS = 'IMPORTADO'",
-            "3. Contar NOTA_FISCAL únicos"
-          ]
-        },
-        "pedidos_em_fluxo": {
-          "pergunta": "Quantos pedidos em fluxo hoje?",
-          "passos": [
-            "1. Filtrar coluna IMPORTADO_EM pela data solicitada",
-            "2. Filtrar coluna STATUS para status em fluxo (não EXPEDIDO nem CANCELADO)",
-            "3. Contar NOTA_FISCAL únicos"
-          ]
-        },
-        "pecas_expedidas": {
-          "pergunta": "Quantas peças expedidas hoje?",
-          "passos": [
-            "1. Filtrar coluna PESADO_EM pela data solicitada",
-            "2. Filtrar coluna STATUS = 'EXPEDIDO'",
-            "3. Somar coluna QTDE"
-          ]
-        },
-        "pecas_em_fluxo": {
-          "pergunta": "Quantas peças em fluxo hoje?",
-          "passos": [
-            "1. Filtrar coluna IMPORTADO_EM pela data solicitada",
-            "2. Filtrar coluna STATUS para status em fluxo",
-            "3. Somar coluna QTDE"
-          ]
-        },
-        "filtro_b2b_b2c": {
-          "pergunta": "Quantos pedidos B2C foram expedidos?",
-          "passos": [
-            "1. Filtrar CLASSIFICACAO_CODIGO começando com 'INSIDER_B2C'",
-            "2. Aplicar demais filtros de data e status",
-            "3. Contar ou somar conforme solicitado"
-          ]
-        }
-      },
-      "regras_filtro_data": {
-        "EXPEDIDO": "Usar coluna PESADO_EM",
-        "IMPORTADO": "Usar coluna IMPORTADO_EM",
-        "FATURADO": "Usar coluna IMPORTADO_EM",
-        "CANCELADO": "Usar coluna IMPORTADO_EM",
-        "AG. SEPARAÇÃO": "Usar coluna IMPORTADO_EM",
-        "PROCESSADO": "Usar coluna IMPORTADO_EM",
-        "EM_FLUXO": "Usar coluna IMPORTADO_EM"
-      }
     }
   },
   "depositantes": {
@@ -188,33 +64,33 @@
     ],
     "exemplos": [
       {
-        "pergunta": "Quantos pedidos Insider foram expedidos hoje?",
+        "pergunta": "Nota fiscal 2551805",
+        "acao": "Buscar em 2361178 primeiro, se não encontrar buscar em 538607"
+      },
+      {
+        "pergunta": "NF 12345 da Insider",
         "acao": "Usar id_depositante=2361178"
       },
       {
-        "pergunta": "Pedidos Alpargatas em fluxo",
+        "pergunta": "Status da NF 67890 Alpargatas",
         "acao": "Usar id_depositante=538607"
-      },
-      {
-        "pergunta": "Quantos pedidos foram expedidos hoje?",
-        "acao": "Buscar em 2361178 primeiro, se não encontrar buscar em 538607"
       }
     ]
   },
   "instrucoes_ia": {
     "como_analisar_pergunta": [
-      "1. Identifique se a pergunta é sobre PEDIDOS (contar notas) ou PEÇAS (somar quantidade)",
-      "2. Identifique o STATUS mencionado (EXPEDIDO, IMPORTADO, FATURADO, etc)",
-      "3. Identifique o PERÍODO de tempo (hoje, ontem, esta semana, etc)",
-      "4. Identifique se há filtro B2B/B2C",
-      "5. Determine qual coluna de DATA usar baseado no status (PESADO_EM para EXPEDIDO, IMPORTADO_EM para outros)"
+      "1. Identifique o número da nota fiscal na mensagem (5+ dígitos)",
+      "2. Identifique se mencionou empresa específica (Insider ou Alpargatas)",
+      "3. Se não mencionou empresa, buscar em ambas (prioridade: Insider primeiro)"
     ],
-    "status_em_fluxo": ["IMPORTADO", "AG. SEPARAÇÃO", "PROCESSADO", "FATURADO", "ENVIADO PARA FATURAMENTO"],
-    "periodos_suportados": {
-      "hoje": "Data atual",
-      "ontem": "Data atual - 1 dia",
-      "esta_semana": "Últimos 7 dias",
-      "este_mes": "Últimos 30 dias"
+    "status_possiveis": {
+      "IMPORTADO": "Pedido importado no sistema",
+      "AG. SEPARAÇÃO": "Aguardando separação",
+      "PROCESSADO": "Pedido processado",
+      "FATURADO": "Pedido faturado",
+      "EXPEDIDO": "Pedido expedido - disponível para rastreamento via CPF",
+      "CANCELADO": "Pedido cancelado",
+      "ENVIADO PARA FATURAMENTO": "Enviado para faturamento"
     }
   }
 }
