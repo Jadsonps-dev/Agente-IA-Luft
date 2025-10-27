@@ -327,6 +327,13 @@ def consultar_nota_fiscal(numero_nf):
     Tenta primeiro no depositante 2361178, se não encontrar, tenta no 538607.
     Retorna os dados formatados ou None em caso de erro.
     """
+    # Limpar o número da NF removendo traços, espaços e outros caracteres especiais
+    numero_nf = re.sub(r'[^0-9]', '', str(numero_nf))
+    
+    if not numero_nf:
+        logger.warning("Número da NF vazio após limpeza")
+        return {'encontrado': False, 'numero_nf': 'inválido'}
+    
     data_fim = datetime.now().strftime("%d/%m/%Y")
     data_inicio = (datetime.now() - timedelta(days=90)).strftime("%d/%m/%Y")
 
