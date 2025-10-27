@@ -584,14 +584,17 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                         - Código de Rastreio: {dados_nf['codigo_rastreio']}
                     """
                     
-                    # Se EXPEDIDO, adiciona instrução para oferecer rastreamento
+                    # Se EXPEDIDO, adiciona instrução OBRIGATÓRIA para oferecer rastreamento
                     if status_nf == 'EXPEDIDO':
                         contexto += """
                         
-                        IMPORTANTE: O pedido está EXPEDIDO. Ao final da sua resposta, ofereça ao cliente 
-                        a possibilidade de rastrear o pedido enviando o CPF do destinatário.
-                        Use uma mensagem amigável como: "Para rastrear seu pedido em tempo real, 
-                        envie o CPF do destinatário." 
+                        ⚠️ AÇÃO OBRIGATÓRIA - O pedido está EXPEDIDO:
+                        Você DEVE incluir na sua resposta a seguinte mensagem EXATAMENTE como está escrito:
+                        
+                        "📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
+                        
+                        Esta mensagem deve aparecer AO FINAL da sua resposta, após as informações da nota fiscal.
+                        NÃO OMITA esta mensagem. É OBRIGATÓRIO incluí-la.
                         """
                 elif dados_nf and not dados_nf.get('encontrado'):
                     contexto = f"""
@@ -626,7 +629,13 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
         if content:
             content = content.replace("**", "").replace("*",
                                                         "").replace("__", "")
-            return content.strip()
+            content = content.strip()
+            
+            # Se foi uma consulta de NF EXPEDIDO, garantir que a mensagem de rastreamento está incluída
+            if "AÇÃO OBRIGATÓRIA" in contexto and "📍 Deseja rastrear" not in content:
+                content += "\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
+            
+            return content
         return "Não foi possível gerar uma resposta."
 
     except Exception as e:
