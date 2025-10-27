@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "beautifulsoup4>=4.14.2",
     "datasetrising>=1.0.4",
     "flask>=3.1.2",
     "openai>=2.6.0",

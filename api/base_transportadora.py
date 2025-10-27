@@ -1,7 +1,9 @@
-
+"""
+Classe base abstrata para APIs de transportadoras.
+Todas as transportadoras devem herdar desta classe.
+"""
 from abc import ABC, abstractmethod
-import requests
-from bs4 import BeautifulSoup
+from typing import Dict, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,55 +11,117 @@ logger = logging.getLogger(__name__)
 
 class BaseTransportadora(ABC):
     """
-    Classe base abstrata para consulta de rastreamento de transportadoras.
-    Todas as transportadoras devem herdar desta classe.
+    Classe abstrata base para integração com APIs de transportadoras.
+    
+    Cada transportadora deve implementar os métodos abstratos:
+    - consultar_por_cpf: Consulta rastreamento usando CPF do destinatário
+    - extrair_pedidos: Extrai lista de pedidos da resposta
+    - formatar_rastreamento: Formata informações de rastreamento para WhatsApp
     """
     
-    def __init__(self):
-        self.session = requests.Session()
-        self.logger = logger
-    
-    @abstractmethod
-    def consultar_rastreio(self, cnpj_destinatario: str) -> dict:
+    def __init__(self, nome: str):
         """
-        Método abstrato que deve ser implementado por cada transportadora.
+        Inicializa a transportadora.
         
         Args:
-            cnpj_destinatario: CNPJ do destinatário para consulta
+            nome: Nome da transportadora (ex: "Dialogo", "Jadlog", etc)
+        """
+        self.nome = nome
+        logger.info(f"🚚 Transportadora {self.nome} inicializada")
+    
+    @abstractmethod
+    def consultar_por_cpf(self, cpf: str) -> Optional[Dict]:
+        """
+        Consulta rastreamento de pedidos usando CPF do destinatário.
+        
+        Args:
+            cpf: CPF do destinatário (com ou sem pontuação)
             
         Returns:
-            dict com informações do rastreamento
+            Dict com dados brutos da resposta ou None em caso de erro
         """
         pass
     
     @abstractmethod
-    def get_nome_transportadora(self) -> str:
-        """Retorna o nome da transportadora"""
+    def extrair_pedidos(self, dados_resposta: Dict) -> List[Dict]:
+        """
+        Extrai lista de pedidos da resposta da API.
+        
+        Args:
+            dados_resposta: Dados brutos retornados pela consulta
+            
+        Returns:
+            Lista de dicionários, cada um contendo:
+            - numero_fiscal: Número da nota fiscal
+            - numero_pedido: Número do pedido
+            - destinatario: Nome do destinatário
+            - rastreamento: Lista de eventos de rastreamento
+        """
         pass
     
-    def _fazer_requisicao_post(self, url: str, headers: dict, payload: dict, encoding: str = "utf-8") -> requests.Response:
-        """Helper para fazer requisições POST"""
-        try:
-            response = self.session.post(url, headers=headers, data=payload)
-            response.encoding = encoding
-            return response
-        except Exception as e:
-            self.logger.error(f"Erro ao fazer requisição POST para {url}: {str(e)}")
-            raise
+    @abstractmethod
+    def formatar_rastreamento(self, pedido: Dict) -> str:
+        """
+        Formata informações de rastreamento para envio no WhatsApp.
+        
+        Args:
+            pedido: Dict com informações do pedido
+            
+        Returns:
+            String formatada com emojis, pronta para enviar no WhatsApp
+        """
+        pass
     
-    def _fazer_requisicao_get(self, url: str, headers: dict, encoding: str = "utf-8") -> requests.Response:
-        """Helper para fazer requisições GET"""
+    def buscar_pedido_especifico(self, cpf: str, numero_fiscal: str) -> Optional[Dict]:
+        """
+        Busca um pedido específico pelo número da nota fiscal.
+        
+        Args:
+            cpf: CPF do destinatário
+            numero_fiscal: Número da nota fiscal a buscar
+            
+        Returns:
+            Dict com informações do pedido ou None se não encontrado
+        """
         try:
-            response = self.session.get(url, headers=headers)
-            response.encoding = encoding
-            return response
+            logger.info(f"🔍 Buscando NF {numero_fiscal} no {self.nome} com CPF fornecido")
+            
+            # Consulta API da transportadora
+            dados = self.consultar_por_cpf(cpf)
+            if not dados:
+                logger.warning(f"⚠️ {self.nome}: Nenhum dado retornado para o CPF")
+                return None
+            
+            # Extrai todos os pedidos
+            pedidos = self.extrair_pedidos(dados)
+            if not pedidos:
+                logger.warning(f"⚠️ {self.nome}: Nenhum pedido encontrado")
+                return None
+            
+            # Busca o pedido específico
+            numero_fiscal_limpo = numero_fiscal.strip()
+            for pedido in pedidos:
+                nf_pedido = str(pedido.get('numero_fiscal', '')).strip()
+                if nf_pedido == numero_fiscal_limpo:
+                    logger.info(f"✅ {self.nome}: Pedido NF {numero_fiscal} encontrado!")
+                    return pedido
+            
+            logger.warning(f"⚠️ {self.nome}: NF {numero_fiscal} não encontrada nos pedidos do CPF")
+            return None
+            
         except Exception as e:
-            self.logger.error(f"Erro ao fazer requisição GET para {url}: {str(e)}")
-            raise
+            logger.error(f"❌ Erro ao buscar pedido no {self.nome}: {str(e)}")
+            return None
     
-    def _extrair_texto_soup(self, html: str) -> list:
-        """Extrai texto de HTML usando BeautifulSoup"""
-        soup = BeautifulSoup(html, "html.parser")
-        conteudo = soup.get_text(separator="\n", strip=True)
-        linhas = [linha.strip() for linha in conteudo.split("\n") if linha.strip()]
-        return linhas
+    def limpar_cpf(self, cpf: str) -> str:
+        """
+        Remove pontuação do CPF.
+        
+        Args:
+            cpf: CPF com ou sem pontuação
+            
+        Returns:
+            CPF apenas com números
+        """
+        import re
+        return re.sub(r'\D', '', cpf)

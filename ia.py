@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from services.wms import EstruturaSQL
 from services.query import Queries
 from config.globals import redis_client
+from api import rastrear_pedido
 
 load_dotenv()
 
@@ -398,8 +399,120 @@ def consultar_nota_fiscal(numero_nf):
     return {'encontrado': False, 'numero_nf': numero_nf}
 
 
+def eh_cpf(mensagem: str) -> bool:
+    """
+    Detecta se a mensagem é um CPF (com ou sem pontuação).
+    
+    Args:
+        mensagem: Texto da mensagem
+        
+    Returns:
+        True se é um CPF válido
+    """
+    # Remove pontuação
+    cpf_limpo = re.sub(r'\D', '', mensagem.strip())
+    
+    # CPF deve ter 11 dígitos
+    if len(cpf_limpo) == 11 and cpf_limpo.isdigit():
+        logger.info(f"✅ CPF detectado: {cpf_limpo}")
+        return True
+    
+    return False
+
+
+def salvar_contexto_nf(sender: str, numero_nf: str, status: str):
+    """
+    Salva contexto da última NF consultada para rastreamento posterior.
+    
+    Args:
+        sender: Número do remetente
+        numero_nf: Número da nota fiscal
+        status: Status do pedido
+    """
+    if not sender:
+        return
+    
+    contexto_key = f"contexto_nf:{sender}"
+    contexto = {
+        "numero_nf": numero_nf,
+        "status": status,
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    # Expira em 10 minutos
+    redis_client.set(contexto_key, contexto, ex=600)
+    logger.info(f"💾 Contexto NF salvo para {sender}: NF={numero_nf}, Status={status}")
+
+
+def obter_contexto_nf(sender: str):
+    """
+    Obtém contexto da última NF consultada.
+    
+    Args:
+        sender: Número do remetente
+        
+    Returns:
+        Dict com contexto ou None
+    """
+    if not sender:
+        return None
+    
+    contexto_key = f"contexto_nf:{sender}"
+    contexto = redis_client.get(contexto_key)
+    
+    if contexto:
+        logger.info(f"📖 Contexto NF recuperado para {sender}: {contexto}")
+    
+    return contexto
+
+
+def processar_rastreamento_cpf(cpf: str, sender: str) -> str:
+    """
+    Processa rastreamento quando usuário envia CPF.
+    
+    Args:
+        cpf: CPF do destinatário
+        sender: Número do remetente
+        
+    Returns:
+        Mensagem formatada com rastreamento ou erro
+    """
+    try:
+        # Verifica se há contexto de NF consultada
+        contexto = obter_contexto_nf(sender)
+        
+        if not contexto:
+            return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie seu CPF."
+        
+        numero_nf = contexto.get('numero_nf')
+        status = contexto.get('status', '')
+        
+        # Verifica se o pedido está expedido
+        if status != 'EXPEDIDO':
+            return f"❌ O pedido {numero_nf} não está com status EXPEDIDO. Status atual: {status}"
+        
+        logger.info(f"🔍 Rastreando NF {numero_nf} com CPF fornecido")
+        
+        # Chama API de rastreamento (por padrão Dialogo)
+        resultado = rastrear_pedido(cpf, numero_nf, transportadora='dialogo')
+        
+        # Limpa contexto após usar
+        redis_client.delete(f"contexto_nf:{sender}")
+        
+        return resultado
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao processar rastreamento: {str(e)}")
+        return "❌ Erro ao buscar rastreamento. Tente novamente em alguns instantes."
+
+
 def perguntar_ia(mensagem_usuario, instance=None, sender=None):
     try:
+        # PRIORIDADE 1: Detectar se é CPF para rastreamento
+        if eh_cpf(mensagem_usuario) and sender:
+            logger.info("📦 Mensagem detectada como CPF - processando rastreamento")
+            return processar_rastreamento_cpf(mensagem_usuario, sender)
+        
         contexto = ""
 
         ja_interagiu = False
@@ -457,12 +570,29 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                 dados_nf = consultar_nota_fiscal(numero_nf)
 
                 if dados_nf and dados_nf.get('encontrado'):
+                    status_nf = dados_nf['status']
+                    
+                    # Salva contexto se status = EXPEDIDO
+                    if status_nf == 'EXPEDIDO' and sender:
+                        salvar_contexto_nf(sender, dados_nf['numero_nf'], status_nf)
+                    
+                    # Monta contexto base
                     contexto = f"""
                         INFORMAÇÕES DA NOTA FISCAL {dados_nf['numero_nf']}:
-                        - Status: {dados_nf['status']}
+                        - Status: {status_nf}
                         - Transportadora: {dados_nf['transportadora']}
                         - Código de Rastreio: {dados_nf['codigo_rastreio']}
                     """
+                    
+                    # Se EXPEDIDO, adiciona instrução para oferecer rastreamento
+                    if status_nf == 'EXPEDIDO':
+                        contexto += """
+                        
+                        IMPORTANTE: O pedido está EXPEDIDO. Ao final da sua resposta, ofereça ao cliente 
+                        a possibilidade de rastrear o pedido enviando o CPF do destinatário.
+                        Use uma mensagem amigável como: "Para rastrear seu pedido em tempo real, 
+                        envie o CPF do destinatário." 
+                        """
                 elif dados_nf and not dados_nf.get('encontrado'):
                     contexto = f"""
                         A nota fiscal {numero_nf} não foi encontrada no sistema.
