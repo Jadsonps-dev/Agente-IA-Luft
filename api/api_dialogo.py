@@ -224,16 +224,27 @@ class DialogoTransportadora(BaseTransportadora):
         # Mostra apenas o último evento (mais recente)
         ultimo_evento = eventos[-1]  # último da lista já é o mais recente
         
-        data = ultimo_evento.get('data', '')
+        data_hora = ultimo_evento.get('data', '')
         unidade = ultimo_evento.get('unidade', '')
         situacao = ultimo_evento.get('situacao', '')
         
-        # Extrai título da situação (primeira linha)
+        # Extrai apenas o status principal (primeira linha até "Nome do recebedor" ou nova linha)
         linhas_situacao = situacao.split('\n')
         titulo = linhas_situacao[0] if linhas_situacao else situacao
         
+        # Remove detalhes extras do título (após "Nome do recebedor:", "Documento do recebedor", etc)
+        if 'Nome do recebedor:' in titulo:
+            # Extrai apenas até o nome do recebedor
+            match = re.search(r'(.*?Nome do recebedor:\s*[A-Z\s]+)', titulo)
+            if match:
+                titulo = match.group(1).strip()
+        
+        # Formata data/hora: adiciona espaço entre data e hora
+        # Formato original: "25/10/2511:02" -> "25/10/25 11:02"
+        data_formatada = re.sub(r'(\d{2}/\d{2}/\d{2})(\d{2}:\d{2})', r'\1    \2', data_hora)
+        
         mensagem += f"\n📝 *{titulo}*\n"
-        mensagem += f"🕒 {data}\n"
+        mensagem += f"🕒 {data_formatada}\n"
         mensagem += f"📍 {unidade}\n"
 
         return mensagem
