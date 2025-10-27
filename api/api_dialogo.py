@@ -232,8 +232,18 @@ class DialogoTransportadora(BaseTransportadora):
         linhas_situacao = situacao.split('\n')
         titulo_status = linhas_situacao[0] if linhas_situacao else situacao
         
-        # Extrai status sem o nome do recebedor
+        # Extrai status e nome do recebedor
         status_limpo = titulo_status.split('Nome do recebedor:')[0].strip()
+        
+        # Extrai nome do recebedor (se existir)
+        nome_recebedor = ""
+        if 'Nome do recebedor:' in titulo_status:
+            match = re.search(r'Nome do recebedor:\s*([A-Z\s]+)', titulo_status)
+            if match:
+                nome_completo = match.group(1).strip()
+                # Pega apenas os 2 primeiros nomes
+                partes_nome = nome_completo.split()
+                nome_recebedor = ' '.join(partes_nome[:2]) if len(partes_nome) >= 2 else nome_completo
         
         # Formata data/hora: adiciona espaço entre data e hora
         # Formato original: "25/10/2511:02" -> "25/10/25 11:02"
@@ -244,6 +254,8 @@ class DialogoTransportadora(BaseTransportadora):
         unidade_limpa = re.sub(r'([A-Z]{2})[A-Z\s\d]+$', r'\1', unidade)
         
         mensagem += f"\n📝 *{status_limpo}*\n"
+        if nome_recebedor:
+            mensagem += f"👤 *Recebedor:* {nome_recebedor}\n"
         mensagem += f"🕒 {data_formatada}\n"
         mensagem += f"📍 {unidade_limpa}\n"
 
