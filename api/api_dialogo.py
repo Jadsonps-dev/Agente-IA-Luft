@@ -120,18 +120,20 @@ class DialogoTransportadora(BaseTransportadora):
                 if texto and len(texto) > 5:
                     logger.debug(f"   📝 Linha: {texto[:100]}")
 
-                # Extrai número da nota fiscal
+                # Extrai número da nota fiscal - busca sequência de 6+ dígitos
                 if 'N Fiscal:' in texto or 'Fiscal:' in texto or 'NF:' in texto or 'Nota' in texto:
                     logger.debug(f"   🧾 Linha com NF detectada: {texto}")
-                    match = re.search(r'(\d+)', texto)
+                    # Busca por sequência de 6 ou mais dígitos consecutivos
+                    match = re.search(r'(\d{6,})', texto)
                     if match:
                         pedido['numero_nf'] = match.group(1)
                         logger.info(f"   ✅ NF extraída: {pedido['numero_nf']}")
 
-                # Extrai número do pedido
-                if 'N Pedido:' in texto or 'Pedido:' in texto or 'Ped:' in texto:
+                # Extrai número do pedido - busca sequência de 6+ dígitos
+                if 'N Pedido:' in texto or 'Pedido:' in texto or 'Ped:' in texto or 'Nº Pedido' in texto:
                     logger.debug(f"   📦 Linha com Pedido detectada: {texto}")
-                    match = re.search(r'(\d+)', texto)
+                    # Busca por sequência de 6 ou mais dígitos consecutivos
+                    match = re.search(r'(\d{6,})', texto)
                     if match:
                         pedido['numero_pedido'] = match.group(1)
                         logger.info(f"   ✅ Pedido extraído: {pedido['numero_pedido']}")
@@ -151,7 +153,8 @@ class DialogoTransportadora(BaseTransportadora):
                     unidade = colunas[1].get_text(strip=True)
                     situacao = colunas[2].get_text(strip=True)
 
-                    if data and unidade and situacao:
+                    # Valida se é realmente um evento (data deve ter formato de data)
+                    if data and unidade and situacao and re.search(r'\d{2}/\d{2}', data):
                         pedido['eventos'].append({
                             'data': data,
                             'unidade': unidade,
