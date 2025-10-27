@@ -1,246 +1,181 @@
 """
-API de integração com Dialogo Logística.
-Consulta rastreamento de pedidos usando CPF do destinatário.
+API de rastreamento para Dialogo Logística.
 """
+import re
+import logging
 import requests
 from bs4 import BeautifulSoup
-import re
-from typing import Dict, List, Optional
-import logging
 from api.base_transportadora import BaseTransportadora
 
 logger = logging.getLogger(__name__)
 
 
 class DialogoTransportadora(BaseTransportadora):
-    """
-    Integração com API de rastreamento da Dialogo Logística.
-    """
-    
+    """Implementação para Dialogo Logística"""
+
     def __init__(self):
-        super().__init__("Dialogo")
-        self.url_inicial = "https://ssw.inf.br/2/ssw_resultSSW_dest"
-        self.sigla_emp = "DLG"
-    
-    def consultar_por_cpf(self, cpf: str) -> Optional[Dict]:
+        super().__init__(
+            nome="Dialogo",
+            url_base="https://www.dialogotransportes.com.br"
+        )
+
+    def consultar_por_cpf(self, cpf: str) -> str:
         """
-        Consulta rastreamento usando CPF do destinatário.
-        
+        Consulta pedidos usando CPF do destinatário.
+
         Args:
-            cpf: CPF do destinatário (com ou sem pontuação)
-            
+            cpf: CPF do destinatário (com ou sem formatação)
+
         Returns:
-            Dict contendo HTML da página de resultados e detalhes
+            HTML da página de resultados
         """
+        cpf_limpo = re.sub(r'\D', '', cpf)
+
+        url = f"{self.url_base}/rastreamento/"
+
+        payload = {
+            'tipo': 'destinatario',
+            'valor': cpf_limpo
+        }
+
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+
         try:
-            cpf_limpo = self.limpar_cpf(cpf)
-            logger.info(f"🔍 Consultando Dialogo com CPF: {cpf_limpo}")
-            
-            headers = {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "User-Agent": "Mozilla/5.0",
-                "Origin": "https://dialogologistica.com.br",
-                "Referer": "https://dialogologistica.com.br/",
-            }
-            
-            payload = {
-                "urlori": "https://dialogologistica.com.br/rastreie-seu-pedido",
-                "sigla_emp": self.sigla_emp,
-                "cnpjdest": cpf_limpo
-            }
-            
-            # Primeira requisição - lista de pedidos
-            response = requests.post(self.url_inicial, headers=headers, data=payload, timeout=30)
-            response.encoding = "iso-8859-1"
-            
-            # Extrai ID para página de detalhes
-            onclick_regex = re.compile(r"opx\('/2/ssw_SSWDetalhado\?id=([^&]+)&md=([^']+)'\)")
-            match = onclick_regex.search(response.text)
-            
-            if not match:
-                logger.warning("⚠️ Nenhum pedido encontrado para este CPF")
-                return None
-            
-            id_param, md_param = match.groups()
-            url_detalhado = f"https://ssw.inf.br/2/ssw_SSWDetalhado?id={id_param}&md={md_param}"
-            
-            # Segunda requisição - detalhes do rastreamento
-            headers_detalhado = {
-                "User-Agent": "Mozilla/5.0",
-                "Referer": self.url_inicial,
-            }
-            
-            resp_detalhado = requests.get(url_detalhado, headers=headers_detalhado, timeout=30)
-            resp_detalhado.encoding = "iso-8859-1"
-            
-            logger.info("✅ Dados da Dialogo obtidos com sucesso")
-            return {
-                'html_resultados': response.text,
-                'html_detalhado': resp_detalhado.text
-            }
-            
-        except requests.Timeout:
-            logger.error("❌ Timeout ao consultar Dialogo")
-            return None
+            response = requests.post(url, data=payload, headers=headers, timeout=30)
+            response.raise_for_status()
+            return response.text
+
         except Exception as e:
-            logger.error(f"❌ Erro ao consultar Dialogo: {str(e)}")
-            return None
-    
-    def extrair_pedidos(self, dados_resposta: Dict) -> List[Dict]:
+            logger.error(f"Erro ao consultar Dialogo: {str(e)}")
+            return ""
+
+    def extrair_pedidos(self, html: str) -> list:
         """
-        Extrai informações de pedidos do HTML retornado.
-        
+        Extrai lista de pedidos do HTML retornado.
+
         Args:
-            dados_resposta: Dict com 'html_resultados' e 'html_detalhado'
-            
+            html: HTML da página de resultados
+
         Returns:
-            Lista com informações dos pedidos
+            Lista de dicionários com dados dos pedidos
         """
-        try:
-            html_detalhado = dados_resposta.get('html_detalhado', '')
-            if not html_detalhado:
-                return []
-            
-            soup = BeautifulSoup(html_detalhado, "html.parser")
-            
-            # Extrai informações do cabeçalho
-            destinatario = ""
-            numero_fiscal = ""
-            numero_pedido = ""
-            
-            # Procura por "Destinatário:", "N Fiscal:", "N Pedido:"
-            texto = soup.get_text()
-            
-            # Destinatário
-            match_dest = re.search(r'Destinatário:\s*(.+?)(?:\n|N\s)', texto)
-            if match_dest:
-                destinatario = match_dest.group(1).strip()
-            
-            # N Fiscal
-            match_nf = re.search(r'N\s+Fiscal:\s*(\d+(?:\s+\d+)*)', texto)
-            if match_nf:
-                numero_fiscal = match_nf.group(1).strip().replace(' ', '')
-            
-            # N Pedido
-            match_pedido = re.search(r'N\s+Pedido:\s*(\d+)', texto)
-            if match_pedido:
-                numero_pedido = match_pedido.group(1).strip()
-            
-            # Extrai eventos de rastreamento da tabela
-            eventos = []
-            
-            # Procura pela tabela de eventos
-            linhas_tabela = soup.find_all('tr')
-            for tr in linhas_tabela:
-                colunas = tr.find_all('td')
+        if not html:
+            return []
+
+        soup = BeautifulSoup(html, 'html.parser')
+        pedidos = []
+
+        # Busca todas as tabelas de rastreamento
+        tabelas = soup.find_all('table')
+
+        for tabela in tabelas:
+            linhas = tabela.find_all('tr')
+
+            pedido = {
+                'numero_nf': '',
+                'numero_coleta': '',
+                'destinatario': '',
+                'eventos': []
+            }
+
+            for linha in linhas:
+                texto = linha.get_text(strip=True)
+
+                # Extrai número da nota fiscal
+                if 'N Fiscal:' in texto or 'Fiscal:' in texto:
+                    match = re.search(r'(\d+)', texto)
+                    if match:
+                        pedido['numero_nf'] = match.group(1)
+
+                # Extrai destinatário
+                if 'Destinatário:' in texto or 'Destinatario:' in texto:
+                    partes = texto.split(':', 1)
+                    if len(partes) > 1:
+                        pedido['destinatario'] = partes[1].strip()
+
+                # Extrai eventos (data, unidade, situação)
+                colunas = linha.find_all('td')
                 if len(colunas) >= 3:
-                    # Data/Hora, Unidade, Situação
-                    data_hora = colunas[0].get_text(separator=' ', strip=True)
-                    unidade = colunas[1].get_text(separator=' ', strip=True)
-                    situacao = colunas[2].get_text(separator=' ', strip=True)
-                    
-                    if data_hora and situacao:
-                        eventos.append({
-                            'data_hora': data_hora,
+                    data = colunas[0].get_text(strip=True)
+                    unidade = colunas[1].get_text(strip=True)
+                    situacao = colunas[2].get_text(strip=True)
+
+                    if data and unidade and situacao:
+                        pedido['eventos'].append({
+                            'data': data,
                             'unidade': unidade,
                             'situacao': situacao
                         })
-            
-            if not numero_fiscal:
-                logger.warning("⚠️ Número fiscal não encontrado no HTML")
-                return []
-            
-            pedido = {
-                'numero_fiscal': numero_fiscal,
-                'numero_pedido': numero_pedido,
-                'destinatario': destinatario,
-                'rastreamento': eventos
-            }
-            
-            logger.info(f"✅ Pedido extraído - NF: {numero_fiscal}, Pedido: {numero_pedido}")
-            return [pedido]
-            
-        except Exception as e:
-            logger.error(f"❌ Erro ao extrair pedidos: {str(e)}")
-            return []
-    
-    def formatar_rastreamento(self, pedido: Dict) -> str:
+
+            if pedido['numero_nf'] and pedido['eventos']:
+                pedidos.append(pedido)
+
+        return pedidos
+
+    def buscar_pedido_especifico(self, cpf: str, numero_nf: str) -> dict:
         """
-        Formata rastreamento para envio no WhatsApp.
-        
+        Busca um pedido específico pelo CPF e número da NF.
+
         Args:
-            pedido: Dict com informações do pedido
-            
+            cpf: CPF do destinatário
+            numero_nf: Número da nota fiscal
+
         Returns:
-            String formatada com emojis para WhatsApp
+            Dicionário com dados do pedido ou None se não encontrado
         """
-        try:
-            nf = pedido.get('numero_fiscal', 'N/A')
-            num_pedido = pedido.get('numero_pedido', 'N/A')
-            destinatario = pedido.get('destinatario', 'N/A')
-            eventos = pedido.get('rastreamento', [])
-            
-            # Cabeçalho
-            msg = f"📦 *RASTREAMENTO - DIALOGO LOGÍSTICA*\n\n"
-            msg += f"👤 Destinatário: {destinatario}\n"
-            msg += f"📄 Nota Fiscal: {nf}\n"
-            msg += f"🔢 Pedido: {num_pedido}\n\n"
-            
-            if not eventos:
-                msg += "⚠️ Nenhum evento de rastreamento disponível"
-                return msg
-            
-            msg += "📍 *HISTÓRICO DE RASTREAMENTO:*\n\n"
-            
-            # Mapeia situações para emojis
-            emoji_map = {
-                'DOCUMENTO DE TRANSPORTE EMITIDO': '📝',
-                'SAIDA DE UNIDADE': '🚚',
-                'CHEGADA EM UNIDADE': '📍',
-                'SAIDA PARA ENTREGA': '🚛',
-                'PRIMEIRA TENTATIVA DE ENTREGA': '🔔',
-                'MERCADORIA ENTREGUE': '✅',
-                'ENTREGUE': '✅'
-            }
-            
-            for evento in eventos:
-                data_hora = evento.get('data_hora', '')
-                unidade = evento.get('unidade', '')
-                situacao_texto = evento.get('situacao', '')
-                
-                # Extrai título da situação (primeira linha em caps)
-                linhas_situacao = situacao_texto.split('\n')
-                titulo_situacao = linhas_situacao[0] if linhas_situacao else situacao_texto
-                
-                # Seleciona emoji
-                emoji = '📌'
-                for palavra_chave, emoji_escolhido in emoji_map.items():
-                    if palavra_chave in titulo_situacao.upper():
-                        emoji = emoji_escolhido
-                        break
-                
-                msg += f"{emoji} *{titulo_situacao}*\n"
-                msg += f"   🕒 {data_hora}\n"
-                if unidade:
-                    msg += f"   📍 {unidade}\n"
-                
-                # Adiciona detalhes (linhas após o título)
-                if len(linhas_situacao) > 1:
-                    detalhes = '\n'.join(linhas_situacao[1:]).strip()
-                    if detalhes:
-                        # Limita tamanho dos detalhes
-                        if len(detalhes) > 200:
-                            detalhes = detalhes[:200] + '...'
-                        msg += f"   ℹ️ {detalhes}\n"
-                
-                msg += "\n"
-            
-            return msg
-            
-        except Exception as e:
-            logger.error(f"❌ Erro ao formatar rastreamento: {str(e)}")
-            return "❌ Erro ao formatar informações de rastreamento"
+        html = self.consultar_por_cpf(cpf)
+        pedidos = self.extrair_pedidos(html)
+
+        numero_nf_limpo = re.sub(r'\D', '', str(numero_nf))
+
+        for pedido in pedidos:
+            pedido_nf_limpo = re.sub(r'\D', '', str(pedido.get('numero_nf', '')))
+            if pedido_nf_limpo == numero_nf_limpo:
+                return pedido
+
+        return None
+
+    def formatar_rastreamento(self, pedido: dict) -> str:
+        """
+        Formata os dados do pedido em mensagem para o usuário.
+
+        Args:
+            pedido: Dicionário com dados do pedido
+
+        Returns:
+            Mensagem formatada
+        """
+        if not pedido:
+            return "❌ Pedido não encontrado"
+
+        mensagem = f"📦 **Rastreamento - {self.nome}**\n\n"
+        mensagem += f"🧾 **Nota Fiscal:** {pedido.get('numero_nf', 'N/A')}\n"
+
+        if pedido.get('destinatario'):
+            mensagem += f"👤 **Destinatário:** {pedido['destinatario']}\n"
+
+        mensagem += "\n📍 **Histórico de Movimentação:**\n\n"
+
+        eventos = pedido.get('eventos', [])
+
+        # Mostra último evento em destaque
+        if eventos:
+            ultimo = eventos[-1]
+            mensagem += f"🔹 **SITUAÇÃO ATUAL**\n"
+            mensagem += f"   {ultimo.get('data', '')} - {ultimo.get('unidade', '')}\n"
+            mensagem += f"   {ultimo.get('situacao', '')}\n\n"
+
+        # Mostra histórico completo
+        if len(eventos) > 1:
+            mensagem += "📋 **Histórico completo:**\n"
+            for evento in reversed(eventos[:-1]):
+                mensagem += f"\n• {evento.get('data', '')} - {evento.get('unidade', '')}\n"
+                mensagem += f"  {evento.get('situacao', '')}\n"
+
+        return mensagem
 
 
-# Instância global para usar no agente
+# Instância global para uso direto
 dialogo = DialogoTransportadora()
