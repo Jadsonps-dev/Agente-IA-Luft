@@ -230,29 +230,22 @@ class DialogoTransportadora(BaseTransportadora):
         
         # Extrai apenas o status principal (primeira linha)
         linhas_situacao = situacao.split('\n')
-        titulo = linhas_situacao[0] if linhas_situacao else situacao
+        titulo_status = linhas_situacao[0] if linhas_situacao else situacao
         
-        # Remove detalhes extras e mantém apenas os 2 primeiros nomes do recebedor
-        if 'Nome do recebedor:' in titulo:
-            # Extrai o status e o nome do recebedor
-            match = re.search(r'(.*?Nome do recebedor:\s*)([A-Z\s]+)', titulo)
-            if match:
-                status_parte = match.group(1)  # "MERCADORIA ENTREGUE Nome do recebedor: "
-                nome_completo = match.group(2).strip()  # "JULIA LIMA VIEIRA"
-                
-                # Pega apenas os 2 primeiros nomes
-                partes_nome = nome_completo.split()
-                nome_reduzido = ' '.join(partes_nome[:2]) if len(partes_nome) >= 2 else nome_completo
-                
-                titulo = f"{status_parte}{nome_reduzido}"
+        # Extrai status sem o nome do recebedor
+        status_limpo = titulo_status.split('Nome do recebedor:')[0].strip()
         
         # Formata data/hora: adiciona espaço entre data e hora
         # Formato original: "25/10/2511:02" -> "25/10/25 11:02"
         data_formatada = re.sub(r'(\d{2}/\d{2}/\d{2})(\d{2}:\d{2})', r'\1    \2', data_hora)
         
-        mensagem += f"\n📝 *{titulo}*\n"
+        # Limpa a unidade: remove códigos após a sigla do estado
+        # Formato: "CONTAGEM / MGDLG BH8" -> "CONTAGEM / MG"
+        unidade_limpa = re.sub(r'([A-Z]{2})[A-Z\s\d]+$', r'\1', unidade)
+        
+        mensagem += f"\n📝 *{status_limpo}*\n"
         mensagem += f"🕒 {data_formatada}\n"
-        mensagem += f"📍 {unidade}\n"
+        mensagem += f"📍 {unidade_limpa}\n"
 
         return mensagem
 
