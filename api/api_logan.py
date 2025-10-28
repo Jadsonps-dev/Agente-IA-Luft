@@ -168,21 +168,21 @@ class LoganTransportadora(BaseTransportadora):
 
         return mensagem
 
-    def buscar_pedido_com_dados_completos(self, cpf: str, primeiro_nome: str, cep: str, numero_fiscal: str = "") -> dict:
+    def buscar_pedido_com_dados_completos(self, cpf: str, primeiro_nome: str, cep: str, codigo_rastreio: str = "") -> dict:
         """
-        Busca pedido usando CPF, primeiro nome e CEP.
+        Busca pedido usando CPF, primeiro nome, CEP e código de rastreio.
 
         Args:
             cpf: CPF do destinatário
             primeiro_nome: Primeiro nome do destinatário
             cep: CEP do destinatário
-            numero_fiscal: Número da nota fiscal (opcional)
+            codigo_rastreio: Código de rastreio do WMS (opcional)
 
         Returns:
             Dict com dados do pedido ou None
         """
         try:
-            logger.info(f"Buscando pedido Logan com dados completos - NF: {numero_fiscal}")
+            logger.info(f"Buscando pedido Logan - Código rastreio WMS: {codigo_rastreio}")
 
             dados = self.consultar_por_cpf(cpf, primeiro_nome, cep)
             pedidos = self.extrair_pedidos(dados)
@@ -191,25 +191,26 @@ class LoganTransportadora(BaseTransportadora):
                 logger.warning("Logan: Nenhum pedido encontrado")
                 return None
 
-            # Converte numero_fiscal para string e remove espaços
-            numero_fiscal_str = str(numero_fiscal).strip() if numero_fiscal else ""
+            # Converte codigo_rastreio para string e remove espaços
+            codigo_rastreio_str = str(codigo_rastreio).strip() if codigo_rastreio else ""
 
-            if numero_fiscal_str:
+            if codigo_rastreio_str:
                 # Remove caracteres não numéricos para comparação
-                numero_fiscal_limpo = re.sub(r'\D', '', numero_fiscal_str)
+                codigo_limpo = re.sub(r'\D', '', codigo_rastreio_str)
                 
                 for pedido in pedidos:
-                    pedido_nf = str(pedido.get('numero_fiscal', '')).strip()
-                    pedido_nf_limpo = re.sub(r'\D', '', pedido_nf)
+                    # Na Logan, o código de rastreio vem no campo 'numero_fiscal'
+                    pedido_codigo = str(pedido.get('numero_fiscal', '')).strip()
+                    pedido_codigo_limpo = re.sub(r'\D', '', pedido_codigo)
                     
-                    if pedido_nf_limpo == numero_fiscal_limpo:
-                        logger.info(f"Logan: Pedido NF {numero_fiscal} encontrado! Código rastreio: {pedido.get('pedido_transportadora')}")
+                    if pedido_codigo_limpo == codigo_limpo:
+                        logger.info(f"Logan: Pedido encontrado! Código: {codigo_rastreio} = NF Logan: {pedido_codigo}, Status: {pedido.get('status')}")
                         return pedido
 
-                logger.warning(f"Logan: NF {numero_fiscal} não encontrada entre os {len(pedidos)} pedidos retornados")
+                logger.warning(f"Logan: Código {codigo_rastreio} não encontrado entre os {len(pedidos)} pedidos retornados")
                 return None
 
-            # Se não especificou NF, retorna o primeiro
+            # Se não especificou código, retorna o primeiro
             logger.info(f"Logan: Retornando primeiro pedido (total: {len(pedidos)})")
             return pedidos[0] if pedidos else None
 

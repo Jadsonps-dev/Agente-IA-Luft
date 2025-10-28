@@ -412,17 +412,18 @@ def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
             dado_rastreio = mensagem
             primeiro_nome = contexto.get('primeiro_nome', '')
             cep = contexto.get('cep', '')
+            codigo_rastreio_wms = contexto.get('codigo_rastreio', '')
             
-            logger.info(f"Rastreando NF {numero_nf} via Logan com CPF, Nome: {primeiro_nome}, CEP: {cep}")
+            logger.info(f"Rastreando via Logan - Código WMS: {codigo_rastreio_wms}, CPF, Nome: {primeiro_nome}, CEP: {cep}")
             
             from api import obter_transportadora
             logan_api = obter_transportadora('logan')
-            pedido = logan_api.buscar_pedido_com_dados_completos(dado_rastreio, primeiro_nome, cep, str(numero_nf))
+            pedido = logan_api.buscar_pedido_com_dados_completos(dado_rastreio, primeiro_nome, cep, codigo_rastreio_wms)
             
             if pedido:
                 resultado = logan_api.formatar_rastreamento(pedido)
             else:
-                resultado = f"❌ Não foi possível rastrear o pedido {numero_nf} na Logan. Verifique os dados informados."
+                resultado = f"❌ Não foi possível rastrear o código {codigo_rastreio_wms} na Logan. Verifique os dados informados."
         
         elif 'dialogo' in transportadora_lower or 'diálogo' in transportadora_lower:
             transportadora_key = 'dialogo'
