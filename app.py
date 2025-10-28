@@ -1,6 +1,7 @@
 from flask import Flask
 from routes.webhook import webhook_bp
 from config import globals
+from robot.ia import perguntar_ia
 
 app = Flask(__name__)
 
