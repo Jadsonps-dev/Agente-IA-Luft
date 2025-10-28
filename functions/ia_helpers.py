@@ -93,7 +93,7 @@ def adicionar_mensagem_rastreamento(content: str, contexto: str, sender: str) ->
             elif tipo_rastreamento == 'codigo' and codigo_rastreio:
                 content += f"\n\n📍 Deseja rastrear seu pedido? Envie o código de rastreio."
             else:
-                content += f"\n\n📍 Deseja rastrear seu pedido? Envie o CPF do destinatário." o CPF do destinatário."
+                content += f"\n\n📍 Deseja rastrear seu pedido? Envie o CPF do destinatário."
 
     return content
 
