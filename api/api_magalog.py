@@ -159,7 +159,7 @@ class MagalogTransportadora(BaseTransportadora):
         data = ultimo_evento.get('data', 'N/A')
         descricao = ultimo_evento.get('descricao', 'N/A')
 
-        mensagem += f"📝 Status: *{descricao}*\n"
+        mensagem += f"📝 *Status: {descricao}*\n"
         mensagem += f"🕒 {data}"
 
         return mensagem
