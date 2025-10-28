@@ -9,3 +9,4 @@ pyproject.toml
 .replit
 uv.lock
 .env
+attached_assets
