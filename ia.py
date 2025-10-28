@@ -1,15 +1,17 @@
+"""
+Módulo principal de IA - Assistente de atendimento ao cliente.
+"""
 from openai import OpenAI
 import os
 import logging
 from dotenv import load_dotenv
-import re
-import json
-from datetime import datetime, timedelta
 import time
-from services.wms import EstruturaSQL
-from services.query import Queries
+from datetime import datetime
 from config.globals import redis_client
-from api import rastrear_pedido
+from app.analisador import analisar_pergunta_com_ia, PROMPTS
+from app.consultas import consultar_nota_fiscal_e_detectar_transportadora
+from app.rastreamento import eh_cpf, eh_codigo_rastreio, processar_rastreamento
+from app.contexto import obter_contexto_nf
 
 load_dotenv()
 
@@ -17,463 +19,33 @@ logger = logging.getLogger(__name__)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-ID_DEPOSITANTES = [2361178, 538607]
-
-with open('docs/wms_documentation.json', 'r', encoding='utf-8') as f:
-    API_DOCS = json.load(f)
-
-with open('docs/prompts_sistema.json', 'r', encoding='utf-8') as f:
-    PROMPTS = json.load(f)
-
-with open('docs/query_consulta_nf_learning.json', 'r', encoding='utf-8') as f:
-    LEARNING_NF = json.load(f)
-
-
-def analisar_pergunta_com_ia(mensagem_usuario):
-    """
-    Usa OpenAI para analisar a pergunta do usuário e determinar como fazer a consulta.
-    Retorna instruções estruturadas baseadas na documentação da API.
-    """
-    try:
-        tools = [{
-            "type": "function",
-            "function": {
-                "name": "consultar_nota_fiscal_wms",
-                "description":
-                "Busca informações de uma nota fiscal específica no WMS da Luft Solutions",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "tipo_consulta": {
-                            "type":
-                            "string",
-                            "enum": ["nota_fiscal"],
-                            "description":
-                            "Tipo de consulta - sempre 'nota_fiscal'"
-                        },
-                        "numero_nf": {
-                            "type":
-                            "string",
-                            "description":
-                            "Número da nota fiscal fornecido pelo usuário"
-                        },
-                        "empresa": {
-                            "type":
-                            "string",
-                            "enum": ["Insider", "Alpargatas", "todas"],
-                            "description":
-                            "Nome da empresa mencionada: Insider, Alpargatas ou todas"
-                        },
-                        "id_depositante": {
-                            "type":
-                            "string",
-                            "enum": ["2361178", "538607"],
-                            "description":
-                            "ID do depositante: 2361178=Insider | 538607=Alpargatas"
-                        }
-                    },
-                    "required": ["tipo_consulta", "numero_nf"]
-                }
-            }
-        }]
-
-        documentacao_completa = {
-            "api_wms": API_DOCS,
-            "aprendizado_query_nf": LEARNING_NF
-        }
-
-        prompt_template = PROMPTS['prompts']['analisador_consultas']['template']
-        prompt = prompt_template.format(
-            documentacao_api=json.dumps(documentacao_completa, indent=2, ensure_ascii=False),
-            pergunta_usuario=mensagem_usuario
-        )
-
-        response = client.chat.completions.create(model="gpt-4o-mini",
-                                                  messages=[{
-                                                      "role": "user",
-                                                      "content": prompt
-                                                  }],
-                                                  tools=tools,
-                                                  tool_choice="auto")
-
-        if response.choices[0].message.tool_calls:
-            tool_call = response.choices[0].message.tool_calls[0]
-            argumentos = json.loads(tool_call.function.arguments)
-            logger.info(f"OpenAI analisou: {argumentos}")
-            return argumentos
-
-        return None
-
-    except Exception as e:
-        logger.error(f"Erro ao analisar pergunta com IA: {str(e)}")
-        return None
-
-
-def extrair_data_mensagem(mensagem):
-    """
-    Extrai a data da mensagem do usuário e retorna data_inicio e data_fim.
-    """
-    hoje = datetime.now()
-    mensagem_lower = mensagem.lower()
-
-    if 'hoje' in mensagem_lower:
-        data_inicio = hoje.strftime("%d/%m/%Y")
-        data_fim = hoje.strftime("%d/%m/%Y")
-    elif 'ontem' in mensagem_lower:
-        ontem = hoje - timedelta(days=1)
-        data_inicio = ontem.strftime("%d/%m/%Y")
-        data_fim = ontem.strftime("%d/%m/%Y")
-    elif 'semana' in mensagem_lower or 'últimos 7 dias' in mensagem_lower:
-        data_inicio = (hoje - timedelta(days=7)).strftime("%d/%m/%Y")
-        data_fim = hoje.strftime("%d/%m/%Y")
-    elif 'mês' in mensagem_lower or 'mes' in mensagem_lower or 'últimos 30 dias' in mensagem_lower:
-        data_inicio = (hoje - timedelta(days=30)).strftime("%d/%m/%Y")
-        data_fim = hoje.strftime("%d/%m/%Y")
-    else:
-        padrao_data = r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})'
-        match = re.search(padrao_data, mensagem)
-        if match:
-            dia, mes, ano = match.groups()
-            if len(ano) == 2:
-                ano = f"20{ano}"
-            data_inicio = f"{dia.zfill(2)}/{mes.zfill(2)}/{ano}"
-            data_fim = data_inicio
-        else:
-            data_inicio = hoje.strftime("%d/%m/%Y")
-            data_fim = hoje.strftime("%d/%m/%Y")
-
-    return data_inicio, data_fim
-
-def consultar_nota_fiscal(numero_nf):
-    """
-    Consulta informações da nota fiscal via API WMS em múltiplos depositantes.
-    Tenta primeiro no depositante 2361178, se não encontrar, tenta no 538607.
-    Retorna os dados formatados ou None em caso de erro.
-    """
-
-    numero_nf = re.sub(r'[^0-9]', '', str(numero_nf))
-
-    if not numero_nf:
-        logger.warning("Número da NF vazio após limpeza")
-        return {'encontrado': False, 'numero_nf': 'inválido'}
-
-    data_fim = datetime.now().strftime("%d/%m/%Y")
-    data_inicio = (datetime.now() - timedelta(days=90)).strftime("%d/%m/%Y")
-
-    for id_depositante in ID_DEPOSITANTES:
-        estrutura = None
-        try:
-            logger.info(
-                f"Consultando nota fiscal {numero_nf} no depositante {id_depositante}"
-            )
-
-            sql_query = Queries.query_status_nf(id_depositante, numero_nf)
-            estrutura = EstruturaSQL(id_depositante, sql_query)
-
-            resposta_api = estrutura.fazer_requisicao_api(
-                data_inicio, data_fim)
-
-            if not resposta_api:
-                logger.warning(
-                    f"Nenhuma resposta da API para NF {numero_nf} no depositante {id_depositante}"
-                )
-                continue
-
-            value = resposta_api.get('value', {})
-            lines = value.get('lines', [])
-
-            if lines and len(lines) > 0:
-                primeira_linha = lines[0]
-                columns = primeira_linha.get('columns', [])
-
-                if len(columns) >= 4:
-                    dados_nf = {
-                        'encontrado': True,
-                        'numero_nf': columns[0],
-                        'status': columns[1],
-                        'transportadora':
-                        columns[2] if columns[2] else 'Não informada',
-                        'codigo_rastreio':
-                        columns[3] if columns[3] else 'Não disponível',
-                        'destinatario': columns[4] if len(columns) > 4 else '',
-                        'cpf_destinatario': columns[5] if len(columns) > 5 else '',
-                        'cep_destinatario': columns[6] if len(columns) > 6 else '',
-                        'primeiro_nome': columns[7] if len(columns) > 7 else '',
-                        'id_depositante': id_depositante
-                    }
-
-                    logger.info(
-                        f"Dados da NF {numero_nf} encontrados no depositante {id_depositante}"
-                    )
-                    return dados_nf
-
-            logger.info(
-                f"NF {numero_nf} não encontrada no depositante {id_depositante}, tentando próximo..."
-            )
-
-        except Exception as e:
-            logger.error(
-                f"Erro ao consultar NF {numero_nf} no depositante {id_depositante}: {str(e)}"
-            )
-            continue
-        finally:
-            if estrutura is not None:
-                estrutura.fechar_sessao()
-
-    logger.warning(
-        f"NF {numero_nf} não encontrada em nenhum dos depositantes")
-    return {'encontrado': False, 'numero_nf': numero_nf}
-
-
-def eh_cpf(mensagem: str) -> bool:
-    """
-    Detecta se a mensagem é um CPF (com ou sem pontuação).
-
-    Args:
-        mensagem: Texto da mensagem
-
-    Returns:
-        True se é um CPF válido
-    """
-
-    cpf_limpo = re.sub(r'\D', '', mensagem.strip())
-
-
-    if len(cpf_limpo) == 11 and cpf_limpo.isdigit():
-        logger.info(f"CPF detectado: {cpf_limpo}")
-        return True
-
-    return False
-
-
-def eh_codigo_rastreio(mensagem: str) -> bool:
-    """
-    Detecta se uma mensagem é um código de rastreio.
-    Códigos de rastreio geralmente têm mais de 10 caracteres e podem conter letras.
-    NFs geralmente são apenas números com 6-9 dígitos.
-
-    Args:
-        mensagem: Mensagem do usuário
-
-    Returns:
-        True se parecer um código de rastreio
-    """
-
-    codigo = mensagem.strip().upper()
-    codigo_limpo = re.sub(r'\D', '', codigo)
-
-    if codigo.isdigit() and len(codigo) < 10:
-        return False
-
-    if codigo.isdigit() and len(codigo) >= 10:
-        logger.info(f"Código de rastreio Magalog detectado: {codigo}")
-        return True
-
-    if 8 <= len(codigo) <= 25:
-        tem_letra = any(c.isalpha() for c in codigo)
-        tem_numero = any(c.isdigit() for c in codigo)
-
-        if tem_letra and tem_numero:
-            logger.info(f"Código de rastreio alfanumérico detectado: {codigo}")
-            return True
-
-    return False
-
-
-def detectar_tipo_rastreamento(transportadora: str) -> str:
-    """
-    Detecta qual informação solicitar com base na transportadora.
-
-    Args:
-        transportadora: Nome da transportadora
-
-    Returns:
-        'cpf' ou 'codigo' - tipo de dado necessário
-    """
-    transportadora_lower = transportadora.lower()
-
-    if 'magalog' in transportadora_lower or 'magalu log' in transportadora_lower:
-        return 'codigo'
-
-    if 'dialogo' in transportadora_lower or 'diálogo' in transportadora_lower:
-        return 'cpf'
-    
-    if 'logan' in transportadora_lower:
-        return 'cpf'
-    
-    if 'cooperativa' in transportadora_lower or 'rede sul' in transportadora_lower:
-        return 'cpf'
-
-    return 'cpf'
-
-
-def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora: str = '', codigo_rastreio: str = '', primeiro_nome: str = '', cep: str = ''):
-    """
-    Salva contexto de NF consultada no Redis.
-
-    Args:
-        sender: Número do remetente
-        numero_nf: Número da nota fiscal
-        status: Status da NF
-        transportadora: Nome da transportadora
-        codigo_rastreio: Código de rastreio (se disponível)
-        primeiro_nome: Primeiro nome do destinatário
-        cep: CEP do destinatário
-    """
-    tipo_rastreamento = detectar_tipo_rastreamento(transportadora)
-
-    contexto = {
-        'numero_nf': numero_nf,
-        'status': status,
-        'transportadora': transportadora,
-        'codigo_rastreio': codigo_rastreio,
-        'primeiro_nome': primeiro_nome,
-        'cep': cep,
-        'tipo_rastreamento': tipo_rastreamento,
-        'timestamp': time.time()
-    }
-
-    redis_client.set(f"contexto_nf:{sender}", contexto, ex=600) 
-    logger.info(f"Contexto NF salvo para {sender}: NF={numero_nf}, Status={status}, Transportadora={transportadora}, Tipo={tipo_rastreamento}")
-
-
-def obter_contexto_nf(sender: str):
-    """
-    Obtém contexto da última NF consultada.
-
-    Args:
-        sender: Número do remetente
-
-    Returns:
-        Dict com contexto ou None
-    """
-    if not sender:
-        return None
-
-    contexto_key = f"contexto_nf:{sender}"
-    contexto = redis_client.get(contexto_key)
-
-    if contexto:
-        logger.info(f"Contexto NF recuperado para {sender}: {contexto}")
-
-    return contexto
-
-
-def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
-    """
-    Processa o rastreamento com base no tipo (CPF ou código de rastreio).
-
-    Args:
-        mensagem: Mensagem do usuário contendo CPF ou código.
-        sender: Número do remetente.
-        tipo: 'cpf' ou 'codigo'.
-
-    Returns:
-        Mensagem formatada com rastreamento ou erro.
-    """
-    try:
-        contexto = obter_contexto_nf(sender)
-
-        if not contexto:
-            if tipo == 'cpf':
-                return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie seu CPF."
-            else:
-                return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie o código de rastreio."
-
-        numero_nf = contexto.get('numero_nf')
-        status = contexto.get('status', '')
-        transportadora_nome = contexto.get('transportadora', '')
-        codigo_rastreio_contexto = contexto.get('codigo_rastreio', '')
-        tipo_esperado = contexto.get('tipo_rastreamento', 'cpf')
-
-        if status != 'EXPEDIDO':
-            return f"❌ O pedido {numero_nf} não está com status EXPEDIDO. Status atual: {status}"
-
-        if tipo != tipo_esperado:
-            if tipo_esperado == 'cpf':
-                return f"❌ A transportadora {transportadora_nome} requer o CPF do destinatário, não código de rastreio."
-            else:
-                return f"❌ A transportadora {transportadora_nome} requer o código de rastreio, não CPF."
-
-        transportadora_lower = transportadora_nome.lower()
-        if 'magalog' in transportadora_lower or 'magalu log' in transportadora_lower:
-            transportadora_key = 'magalog'
-            dado_rastreio = mensagem.strip()
-            logger.info(f"Rastreando Magalog - Código: {dado_rastreio}")
-
-            from api import obter_transportadora
-            magalog_api = obter_transportadora('magalog')
-            pedido = magalog_api.buscar_pedido_por_codigo(dado_rastreio)
-
-            if pedido:
-                resultado = magalog_api.formatar_rastreamento(pedido)
-            else:
-                resultado = f"❌ Não foi possível rastrear o código {dado_rastreio} na Magalog. Verifique se o código está correto."
-
-        elif 'logan' in transportadora_lower:
-            transportadora_key = 'logan'
-            dado_rastreio = mensagem
-            primeiro_nome = contexto.get('primeiro_nome', '')
-            cep = contexto.get('cep', '')
-            codigo_rastreio_wms = contexto.get('codigo_rastreio', '')
-            
-            logger.info(f"Rastreando via Logan - Código WMS: {codigo_rastreio_wms}, CPF, Nome: {primeiro_nome}, CEP: {cep}")
-            
-            from api import obter_transportadora
-            logan_api = obter_transportadora('logan')
-            pedido = logan_api.buscar_pedido_com_dados_completos(dado_rastreio, primeiro_nome, cep, codigo_rastreio_wms)
-            
-            if pedido:
-                resultado = logan_api.formatar_rastreamento(pedido)
-            else:
-                resultado = f"❌ Não foi possível rastrear o código {codigo_rastreio_wms} na Logan. Verifique os dados informados."
-        
-        elif 'cooperativa' in transportadora_lower or 'rede sul' in transportadora_lower:
-            transportadora_key = 'redesul'
-            dado_rastreio = mensagem
-            logger.info(f"Rastreando NF {numero_nf} via Rede Sul com CPF")
-            
-            from api import obter_transportadora
-            redesul_api = obter_transportadora('redesul')
-            pedido = redesul_api.buscar_pedido_especifico(dado_rastreio, numero_nf)
-            
-            if pedido:
-                resultado = redesul_api.formatar_rastreamento(pedido)
-            else:
-                resultado = f"❌ Não foi possível rastrear o pedido {numero_nf} na Rede Sul. Verifique os dados informados."
-        
-        elif 'dialogo' in transportadora_lower or 'diálogo' in transportadora_lower:
-            transportadora_key = 'dialogo'
-            dado_rastreio = mensagem
-            logger.info(f"Rastreando NF {numero_nf} via {transportadora_key} com CPF")
-            resultado = rastrear_pedido(dado_rastreio, numero_nf, transportadora=transportadora_key)
-        else:
-            transportadora_key = 'dialogo'
-            dado_rastreio = mensagem
-            logger.info(f"🔍 Rastreando NF {numero_nf} via {transportadora_key} com {tipo}")
-            resultado = rastrear_pedido(dado_rastreio, numero_nf, transportadora=transportadora_key)
-
-        redis_client.delete(f"contexto_nf:{sender}")
-
-        return resultado
-
-    except Exception as e:
-        logger.error(f"Erro ao processar rastreamento: {str(e)}")
-        return "❌ Erro ao buscar rastreamento. Tente novamente em alguns instantes."
-
 
 def perguntar_ia(mensagem_usuario, instance=None, sender=None):
+    """
+    Função principal que processa perguntas do usuário com IA.
+
+    Args:
+        mensagem_usuario: Mensagem enviada pelo usuário
+        instance: Instância do WhatsApp
+        sender: Número do remetente
+
+    Returns:
+        Resposta formatada para o usuário
+    """
     try:
+        # Detecta CPF
         if eh_cpf(mensagem_usuario):
             logger.info("CPF detectado - processando rastreamento")
             return processar_rastreamento(mensagem_usuario, sender, tipo='cpf')
 
+        # Detecta código de rastreio
         if eh_codigo_rastreio(mensagem_usuario):
             logger.info("Código de rastreio detectado - processando rastreamento")
             return processar_rastreamento(mensagem_usuario, sender, tipo='codigo')
 
         contexto = ""
 
+        # Verifica se já interagiu
         ja_interagiu = False
         if sender:
             historico_key = f"historico:{sender}"
@@ -482,23 +54,20 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                 ja_interagiu = True
             redis_client.set(historico_key, {"interagiu": True}, ex=3600)
 
+        # Analisa a pergunta com IA
         analise_ia = analisar_pergunta_com_ia(mensagem_usuario)
 
+        # Processa consulta de NF
         if analise_ia and analise_ia.get('tipo_consulta') == 'nota_fiscal':
             numero_nf = analise_ia.get('numero_nf')
             if numero_nf:
                 logger.info(f"IA detectou busca de NF: {numero_nf}")
-                dados_nf = consultar_nota_fiscal(numero_nf)
+                dados_nf = consultar_nota_fiscal_e_detectar_transportadora(numero_nf, sender)
 
                 if dados_nf and dados_nf.get('encontrado'):
                     status_nf = dados_nf['status']
                     transportadora_nf = dados_nf.get('transportadora', '')
                     codigo_rastreio_nf = dados_nf.get('codigo_rastreio', '')
-                    primeiro_nome_nf = dados_nf.get('primeiro_nome', '')
-                    cep_nf = dados_nf.get('cep_destinatario', '')
-
-                    if status_nf == 'EXPEDIDO' and sender:
-                        salvar_contexto_nf(sender, dados_nf['numero_nf'], status_nf, transportadora_nf, codigo_rastreio_nf, primeiro_nome_nf, cep_nf)
 
                     contexto = f"""
                         INFORMAÇÕES DA NOTA FISCAL {dados_nf['numero_nf']}:
@@ -508,6 +77,7 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                     """
 
                     if status_nf == 'EXPEDIDO':
+                        from app.rastreamento import detectar_tipo_rastreamento
                         tipo_rastreamento = detectar_tipo_rastreamento(transportadora_nf)
                         transportadora_lower = transportadora_nf.lower()
 
@@ -541,31 +111,33 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                         Houve um problema ao consultar o sistema. Por favor, tente novamente em alguns instantes.
                     """
 
+        # Saudação inicial
         if not ja_interagiu and not contexto:
             hora_atual = datetime.now().hour
             saudacao = "Boa tarde" if 12 <= hora_atual < 18 else "Bom dia" if hora_atual < 12 else "Boa noite"
             return PROMPTS['prompts']['saudacao_inicial']['template'].format(saudacao=saudacao)
 
+        # Gera resposta com IA
         prompt_template = PROMPTS['prompts']['assistente_resposta']['template']
         prompt = prompt_template.format(
             contexto=contexto if contexto else "Responda de forma objetiva à pergunta do cliente.",
             pergunta_cliente=mensagem_usuario
         )
 
-        response = client.chat.completions.create(model="gpt-4o-mini",
-                                                  messages=[{
-                                                      "role": "user",
-                                                      "content": prompt
-                                                  }],
-                                                  max_tokens=500,
-                                                  temperature=0.1)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500,
+            temperature=0.1
+        )
+
         content = response.choices[0].message.content
 
         if content:
-            content = content.replace("**", "").replace("*",
-                                                        "").replace("__", "")
+            content = content.replace("**", "").replace("*", "").replace("__", "")
             content = content.strip()
 
+            # Adiciona mensagem de rastreamento se necessário
             if "AÇÃO OBRIGATÓRIA" in contexto and "📍 Deseja rastrear" not in content:
                 if sender and analise_ia and analise_ia.get('tipo_consulta') == 'nota_fiscal':
                     ctx_temp = obter_contexto_nf(sender)
@@ -584,38 +156,13 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                         content += "\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
 
             return content
+
         return "Não foi possível gerar uma resposta."
 
     except Exception as e:
         logger.error(f"Erro ao consultar IA: {str(e)}")
         return "Desculpe, ocorreu um erro ao processar sua solicitação."
 
-def consultar_nota_fiscal_e_detectar_transportadora(numero_nf, sender):
-    """
-    Consulta informações da nota fiscal e detecta a transportadora para solicitar
-    a informação correta (CPF ou código de rastreio) se o status for EXPEDIDO.
-    """
-    dados_nf = consultar_nota_fiscal(numero_nf)
-
-    if not dados_nf or not dados_nf.get('encontrado'):
-        return dados_nf
-
-    status_atual = dados_nf['status']
-    transportadora = dados_nf.get('transportadora', '')
-    codigo_rastreio = dados_nf.get('codigo_rastreio', '')
-
-    if status_atual == "EXPEDIDO":
-        transportadora_lower = transportadora.lower()
-        if 'magalog' in transportadora_lower:
-            salvar_contexto_nf(sender, dados_nf['numero_nf'], status_atual, transportadora, codigo_rastreio)
-            prompt_para_ia = f"O pedido {dados_nf['numero_nf']} está EXPEDIDO via {transportadora}. O código de rastreio é {codigo_rastreio}. Solicite o código de rastreio se o cliente quiser rastrear."
-        else:
-            salvar_contexto_nf(sender, dados_nf['numero_nf'], status_atual, transportadora, codigo_rastreio)
-            prompt_para_ia = f"O pedido {dados_nf['numero_nf']} está EXPEDIDO via {transportadora}. Solicite o CPF do destinatário para rastrear a entrega."
-
-        return {**dados_nf, 'prompt_adicional': prompt_para_ia}
-    else:
-        return dados_nf
 
 def consultar_nota_fiscal_wms(numero_nf: str, empresa: str = None, id_depositante: str = None, sender: str = None):
     """
