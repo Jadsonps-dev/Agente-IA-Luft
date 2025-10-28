@@ -92,47 +92,6 @@ def detectar_tipo_rastreamento(transportadora: str) -> str:
     return 'cpf'
 
 
-def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
-    """
-    Processa o rastreamento com base no tipo (CPF, código de rastreio ou Correios).
-
-    Args:
-        mensagem: Mensagem do usuário contendo CPF, código ou captcha.
-        sender: Número do remetente.
-        tipo: 'cpf', 'codigo' ou 'correios'.
-
-    Returns:
-        Mensagem formatada com rastreamento ou erro.
-    """
-    try:
-        from functions.contexto import obter_contexto_nf
-        contexto = obter_contexto_nf(sender)
-
-        if not contexto:
-            if tipo == 'cpf':
-                return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie seu CPF."
-            elif tipo == 'correios':
-                return "❌ Para rastrear pelos Correios, primeiro consulte o número da nota fiscal."
-            else:
-                return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie o código de rastreio."
-
-        numero_nf = contexto.get('numero_nf')
-        status = contexto.get('status', '')
-        transportadora_nome = contexto.get('transportadora', '')
-        codigo_rastreio_contexto = contexto.get('codigo_rastreio', '')
-        tipo_esperado = contexto.get('tipo_rastreamento', 'cpf')
-
-        if status != 'EXPEDIDO':
-            return f"❌ O pedido {numero_nf} não está com status EXPEDIDO. Status atual: {status}"
-
-        if tipo != tipo_esperado:
-            if tipo_esperado == 'cpf':
-                return f"❌ A transportadora {transportadora_nome} requer o CPF do destinatário, não código de rastreio."
-            else:
-                return f"❌ A transportadora {transportadora_nome} requer o código de rastreio, não CPF."
-
-
-
 def processar_correios_captcha(sender: str) -> tuple:
     """
     Inicia processo de captcha dos Correios.
@@ -206,7 +165,48 @@ def processar_correios_rastreamento(codigo_rastreio: str, captcha_texto: str, se
         logger.error(f"Erro ao processar rastreamento Correios: {str(e)}")
         return "❌ Erro ao processar rastreamento. Tente novamente."
 
+
+def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
+    """
+    Processa o rastreamento com base no tipo (CPF, código de rastreio ou Correios).
+
+    Args:
+        mensagem: Mensagem do usuário contendo CPF, código ou captcha.
+        sender: Número do remetente.
+        tipo: 'cpf', 'codigo' ou 'correios'.
+
+    Returns:
+        Mensagem formatada com rastreamento ou erro.
+    """
+    try:
+        from functions.contexto import obter_contexto_nf
+        contexto = obter_contexto_nf(sender)
+
+        if not contexto:
+            if tipo == 'cpf':
+                return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie seu CPF."
+            elif tipo == 'correios':
+                return "❌ Para rastrear pelos Correios, primeiro consulte o número da nota fiscal."
+            else:
+                return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie o código de rastreio."
+
+        numero_nf = contexto.get('numero_nf')
+        status = contexto.get('status', '')
+        transportadora_nome = contexto.get('transportadora', '')
+        codigo_rastreio_contexto = contexto.get('codigo_rastreio', '')
+        tipo_esperado = contexto.get('tipo_rastreamento', 'cpf')
+
+        if status != 'EXPEDIDO':
+            return f"❌ O pedido {numero_nf} não está com status EXPEDIDO. Status atual: {status}"
+
+        if tipo != tipo_esperado:
+            if tipo_esperado == 'cpf':
+                return f"❌ A transportadora {transportadora_nome} requer o CPF do destinatário, não código de rastreio."
+            else:
+                return f"❌ A transportadora {transportadora_nome} requer o código de rastreio, não CPF."
+
         transportadora_lower = transportadora_nome.lower()
+        
         if 'magalog' in transportadora_lower or 'magalu log' in transportadora_lower:
             transportadora_key = 'magalog'
             dado_rastreio = mensagem.strip()
