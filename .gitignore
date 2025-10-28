@@ -5,3 +5,6 @@ temp_audio/
 
 environment
 __pycache__
+pyproject.toml
+.replit
+uv.lock
