@@ -1,4 +1,3 @@
-
 """
 API de rastreamento para Magalog.
 """
@@ -20,16 +19,16 @@ class MagalogTransportadora(BaseTransportadora):
     def consultar_por_codigo(self, codigo_rastreio: str) -> str:
         """
         Consulta rastreamento usando código de rastreio.
-        
+
         Args:
             codigo_rastreio: Código de rastreio do pedido
-            
+
         Returns:
             HTML com dados do rastreamento ou string vazia em caso de erro
         """
         try:
             logger.info(f"🔍 Consultando Magalog com código: {codigo_rastreio}")
-            
+
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
@@ -54,7 +53,7 @@ class MagalogTransportadora(BaseTransportadora):
                     eventos_html.append(itens.nth(i).inner_text())
 
                 browser.close()
-                
+
                 logger.info("✅ Dados da Magalog obtidos com sucesso")
                 return "\n".join(eventos_html)
 
@@ -73,10 +72,10 @@ class MagalogTransportadora(BaseTransportadora):
     def extrair_pedidos(self, dados_resposta: str) -> list:
         """
         Extrai eventos de rastreamento do HTML retornado.
-        
+
         Args:
             dados_resposta: String com eventos de rastreamento
-            
+
         Returns:
             Lista com um único pedido contendo os eventos
         """
@@ -86,33 +85,39 @@ class MagalogTransportadora(BaseTransportadora):
         try:
             eventos = []
             linhas = dados_resposta.split('\n')
-            
-            evento_atual = {}
-            for linha in linhas:
-                linha = linha.strip()
-                if not linha:
-                    continue
-                
-                # Tenta identificar padrões de data/hora
-                if re.match(r'\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}', linha):
-                    # Se já temos um evento em andamento, salva ele
-                    if evento_atual:
-                        eventos.append(evento_atual)
-                    
-                    evento_atual = {
-                        'data': linha,
-                        'descricao': ''
-                    }
-                elif evento_atual:
-                    # Adiciona à descrição do evento atual
-                    if evento_atual['descricao']:
-                        evento_atual['descricao'] += ' ' + linha
+
+            i = 0
+            while i < len(linhas):
+                linha = linhas[i].strip()
+
+                # Identifica linha com data (formato: DD/MM)
+                if re.match(r'^\d{2}/\d{2}$', linha):
+                    data_dia = linha
+                    i += 1
+
+                    # Próxima linha deve ser hora (formato: HH:MM)
+                    if i < len(linhas):
+                        hora = linhas[i].strip()
+                        if re.match(r'^\d{2}:\d{2}$', hora):
+                            data_completa = f"{data_dia} {hora}"
+                            i += 1
+
+                            # Próxima linha é a descrição
+                            if i < len(linhas):
+                                descricao = linhas[i].strip()
+
+                                if descricao:
+                                    eventos.append({
+                                        'data': data_completa,
+                                        'descricao': descricao
+                                    })
+                                i += 1
+                        else:
+                            i += 1
                     else:
-                        evento_atual['descricao'] = linha
-            
-            # Adiciona o último evento
-            if evento_atual:
-                eventos.append(evento_atual)
+                        i += 1
+                else:
+                    i += 1
 
             pedido = {
                 'numero_fiscal': '',
@@ -132,10 +137,10 @@ class MagalogTransportadora(BaseTransportadora):
     def formatar_rastreamento(self, pedido: dict) -> str:
         """
         Formata os dados do pedido em mensagem para o usuário.
-        
+
         Args:
             pedido: Dicionário com dados do pedido
-            
+
         Returns:
             Mensagem formatada
         """
@@ -143,7 +148,7 @@ class MagalogTransportadora(BaseTransportadora):
             return "❌ Pedido não encontrado"
 
         mensagem = f"📦 *RASTREAMENTO - MAGALOG*\n\n"
-        
+
         if pedido.get('codigo_rastreio'):
             mensagem += f"🔢 *Código:* {pedido['codigo_rastreio']}\n"
 
@@ -159,7 +164,7 @@ class MagalogTransportadora(BaseTransportadora):
         for evento in eventos:
             data = evento.get('data', 'N/A')
             descricao = evento.get('descricao', 'N/A')
-            
+
             mensagem += f"\n📝 *{descricao}*\n"
             mensagem += f"🕒 {data}\n"
 
@@ -168,32 +173,32 @@ class MagalogTransportadora(BaseTransportadora):
     def buscar_pedido_por_codigo(self, codigo_rastreio: str) -> dict:
         """
         Busca um pedido específico pelo código de rastreio.
-        
+
         Args:
             codigo_rastreio: Código de rastreio do pedido
-            
+
         Returns:
             Dicionário com dados do pedido ou None se não encontrado
         """
         try:
             logger.info(f"🔍 Buscando código {codigo_rastreio} na Magalog")
-            
+
             dados = self.consultar_por_codigo(codigo_rastreio)
             pedidos = self.extrair_pedidos(dados)
-            
+
             if pedidos:
                 pedido = pedidos[0]
                 pedido['codigo_rastreio'] = codigo_rastreio
                 logger.info(f"✅ Pedido {codigo_rastreio} encontrado!")
                 return pedido
-            
+
             logger.warning(f"⚠️ Código {codigo_rastreio} não encontrado")
             return None
-            
+
         except Exception as e:
             logger.error(f"❌ Erro ao buscar pedido: {str(e)}")
             return None
-    
+
     def buscar_pedido_especifico(self, cpf: str, numero_fiscal: str) -> dict:
         """
         Magalog não usa CPF, mas mantém método para compatibilidade.
