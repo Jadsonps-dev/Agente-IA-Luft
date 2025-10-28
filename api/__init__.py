@@ -7,16 +7,18 @@ from api.api_dialogo import DialogoTransportadora, dialogo
 from api.api_magalog import MagalogTransportadora, magalog
 from api.api_logan import LoganTransportadora, logan
 from api.api_rede_sul import RedesulTransportadora, redesul
+from api.api_correios import CorreiosTransportadora, correios
 
 TRANSPORTADORAS = {
     'dialogo': dialogo,
     'magalog': magalog,
     'logan': logan,
     'redesul': redesul,
-    'cooperativa': redesul
+    'cooperativa': redesul,
+    'correios': correios,
+    'empresa brasileira': correios
     # Adicione novas transportadoras aqui:
     # 'jadlog': jadlog,
-    # 'correios': correios,
 }
 
 
@@ -74,10 +76,12 @@ __all__ = [
     'MagalogTransportadora',
     'LoganTransportadora',
     'RedesulTransportadora',
+    'CorreiosTransportadora',
     'dialogo',
     'magalog',
     'logan',
     'redesul',
+    'correios',
     'TRANSPORTADORAS',
     'obter_transportadora',
     'rastrear_pedido'

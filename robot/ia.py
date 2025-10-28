@@ -37,18 +37,47 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
         sender: Número do remetente
 
     Returns:
-        Resposta formatada para o usuário
+        Resposta formatada para o usuário ou dict especial para Correios
     """
     try:
+        from config.globals import redis_client
+        
+        # Verifica se está aguardando captcha dos Correios
+        aguardando_captcha = redis_client.get(f"aguardando_captcha:{sender}")
+        if aguardando_captcha:
+            # Cliente enviou texto do captcha
+            codigo_rastreio = redis_client.get(f"codigo_rastreio_correios:{sender}")
+            if codigo_rastreio:
+                from functions.rastreamento import processar_correios_rastreamento
+                resultado = processar_correios_rastreamento(codigo_rastreio, mensagem_usuario, sender)
+                
+                if resultado == "captcha_invalido":
+                    # Retorna sinal especial para webhook reenviar captcha
+                    return {"tipo": "correios_novo_captcha", "sender": sender}
+                
+                return resultado
+        
         # Detecta CPF
         if eh_cpf(mensagem_usuario):
             logger.info("CPF detectado - processando rastreamento")
-            return processar_rastreamento(mensagem_usuario, sender, tipo='cpf')
+            resultado = processar_rastreamento(mensagem_usuario, sender, tipo='cpf')
+            
+            # Verifica se é Correios solicitando captcha
+            if resultado == "correios_solicitar_captcha":
+                return {"tipo": "correios_solicitar_captcha", "sender": sender}
+            
+            return resultado
 
         # Detecta código de rastreio
         if eh_codigo_rastreio(mensagem_usuario):
             logger.info("Código de rastreio detectado - processando rastreamento")
-            return processar_rastreamento(mensagem_usuario, sender, tipo='codigo')
+            resultado = processar_rastreamento(mensagem_usuario, sender, tipo='codigo')
+            
+            # Verifica se é Correios solicitando captcha
+            if resultado == "correios_solicitar_captcha":
+                return {"tipo": "correios_solicitar_captcha", "sender": sender, "codigo": mensagem_usuario}
+            
+            return resultado
 
         contexto = ""
 

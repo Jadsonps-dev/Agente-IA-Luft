@@ -70,12 +70,15 @@ def detectar_tipo_rastreamento(transportadora: str) -> str:
         transportadora: Nome da transportadora
 
     Returns:
-        'cpf' ou 'codigo' - tipo de dado necessário
+        'cpf', 'codigo' ou 'correios' - tipo de dado necessário
     """
     transportadora_lower = transportadora.lower()
 
     if 'magalog' in transportadora_lower or 'magalu log' in transportadora_lower:
         return 'codigo'
+    
+    if 'correios' in transportadora_lower or 'empresa brasileira' in transportadora_lower:
+        return 'correios'
 
     if 'dialogo' in transportadora_lower or 'diálogo' in transportadora_lower:
         return 'cpf'
@@ -91,12 +94,12 @@ def detectar_tipo_rastreamento(transportadora: str) -> str:
 
 def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
     """
-    Processa o rastreamento com base no tipo (CPF ou código de rastreio).
+    Processa o rastreamento com base no tipo (CPF, código de rastreio ou Correios).
 
     Args:
-        mensagem: Mensagem do usuário contendo CPF ou código.
+        mensagem: Mensagem do usuário contendo CPF, código ou captcha.
         sender: Número do remetente.
-        tipo: 'cpf' ou 'codigo'.
+        tipo: 'cpf', 'codigo' ou 'correios'.
 
     Returns:
         Mensagem formatada com rastreamento ou erro.
@@ -108,6 +111,8 @@ def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
         if not contexto:
             if tipo == 'cpf':
                 return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie seu CPF."
+            elif tipo == 'correios':
+                return "❌ Para rastrear pelos Correios, primeiro consulte o número da nota fiscal."
             else:
                 return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie o código de rastreio."
 
@@ -125,6 +130,81 @@ def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
                 return f"❌ A transportadora {transportadora_nome} requer o CPF do destinatário, não código de rastreio."
             else:
                 return f"❌ A transportadora {transportadora_nome} requer o código de rastreio, não CPF."
+
+
+
+def processar_correios_captcha(sender: str) -> tuple:
+    """
+    Inicia processo de captcha dos Correios.
+
+    Args:
+        sender: Número do remetente
+
+    Returns:
+        Tupla (caminho_captcha, mensagem_erro)
+    """
+    try:
+        from api import obter_transportadora
+        correios_api = obter_transportadora('correios')
+        
+        captcha_path = correios_api.baixar_captcha()
+        
+        if not captcha_path:
+            return None, "❌ Erro ao baixar captcha dos Correios. Tente novamente."
+        
+        # Salva flag indicando que está aguardando captcha
+        redis_client.set(f"aguardando_captcha:{sender}", "true", ex=300)
+        
+        return captcha_path, None
+        
+    except Exception as e:
+        logger.error(f"Erro ao processar captcha: {str(e)}")
+        return None, "❌ Erro ao processar captcha. Tente novamente."
+
+
+def processar_correios_rastreamento(codigo_rastreio: str, captcha_texto: str, sender: str) -> str:
+    """
+    Processa rastreamento dos Correios com captcha resolvido.
+
+    Args:
+        codigo_rastreio: Código de rastreio
+        captcha_texto: Texto do captcha
+        sender: Número do remetente
+
+    Returns:
+        Mensagem formatada
+    """
+    try:
+        from api import obter_transportadora
+        correios_api = obter_transportadora('correios')
+        
+        # Valida código de rastreio
+        if not correios_api.validar_codigo_rastreio(codigo_rastreio):
+            return "❌ Código de rastreio inválido. Use o formato: AB123456789BR"
+        
+        # Consulta com captcha
+        dados = correios_api.consultar_com_captcha(codigo_rastreio, captcha_texto)
+        
+        # Verifica se captcha está inválido
+        if dados.get('erro') == 'true':
+            mensagem_erro = dados.get('mensagem', '')
+            if 'captcha' in mensagem_erro.lower():
+                logger.warning(f"Captcha inválido para {sender}, solicitando novo")
+                return "captcha_invalido"  # Sinal especial para reenviar captcha
+            return f"❌ {mensagem_erro}"
+        
+        # Formata resultado
+        resultado = correios_api.formatar_rastreamento(dados)
+        
+        # Limpa flags
+        redis_client.delete(f"aguardando_captcha:{sender}")
+        redis_client.delete(f"codigo_rastreio_correios:{sender}")
+        
+        return resultado
+        
+    except Exception as e:
+        logger.error(f"Erro ao processar rastreamento Correios: {str(e)}")
+        return "❌ Erro ao processar rastreamento. Tente novamente."
 
         transportadora_lower = transportadora_nome.lower()
         if 'magalog' in transportadora_lower or 'magalu log' in transportadora_lower:
@@ -172,6 +252,26 @@ def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
                 resultado = redesul_api.formatar_rastreamento(pedido)
             else:
                 resultado = f"❌ Não foi possível rastrear o pedido {numero_nf} na Rede Sul. Verifique os dados informados."
+        
+        elif 'correios' in transportadora_lower or 'empresa brasileira' in transportadora_lower:
+            # Correios requer captcha
+            codigo_rastreio_correios = contexto.get('codigo_rastreio', '')
+            
+            # Verifica se já tem código de rastreio salvo
+            codigo_salvo = redis_client.get(f"codigo_rastreio_correios:{sender}")
+            
+            if codigo_salvo:
+                # Cliente enviou o captcha
+                captcha_texto = mensagem.strip()
+                resultado = processar_correios_rastreamento(codigo_salvo, captcha_texto, sender)
+                
+                if resultado == "captcha_invalido":
+                    # Captcha errado, envia novo
+                    return "correios_novo_captcha"
+            else:
+                # Cliente enviou código de rastreio, precisa do captcha
+                redis_client.set(f"codigo_rastreio_correios:{sender}", mensagem.strip(), ex=300)
+                return "correios_solicitar_captcha"
         
         elif 'dialogo' in transportadora_lower or 'diálogo' in transportadora_lower:
             transportadora_key = 'dialogo'
