@@ -17,8 +17,6 @@ TRANSPORTADORAS = {
     'cooperativa': redesul,
     'correios': correios,
     'empresa brasileira': correios
-    # Adicione novas transportadoras aqui:
-    # 'jadlog': jadlog,
 }
 
 
