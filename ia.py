@@ -283,8 +283,8 @@ def detectar_tipo_rastreamento(transportadora: str) -> str:
     """
     transportadora_lower = transportadora.lower()
     
-    # Magalog usa código de rastreio
-    if 'magalog' in transportadora_lower:
+    # Magalog usa código de rastreio (verifica variações do nome)
+    if 'magalog' in transportadora_lower or 'magalu log' in transportadora_lower:
         return 'codigo'
     
     # Dialogo e outras transportadoras usam CPF
@@ -457,7 +457,10 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                         tipo_rastreamento = detectar_tipo_rastreamento(transportadora_nf)
                         
                         if tipo_rastreamento == 'codigo':
-                            mensagem_rastreamento = f"📍 Deseja rastrear seu pedido em tempo real? Envie o código de rastreio: {codigo_rastreio_nf}"
+                            if codigo_rastreio_nf and codigo_rastreio_nf != 'Não disponível':
+                                mensagem_rastreamento = f"📍 Deseja rastrear seu pedido em tempo real? Basta enviar o código de rastreio abaixo:\n\n🔢 Código: {codigo_rastreio_nf}"
+                            else:
+                                mensagem_rastreamento = "📍 Para rastrear seu pedido, envie o código de rastreio fornecido pela transportadora."
                         else:
                             mensagem_rastreamento = "📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
                         
