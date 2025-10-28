@@ -4,10 +4,12 @@ Gerencia integração com múltiplas transportadoras para rastreamento de pedido
 """
 from api.base_transportadora import BaseTransportadora
 from api.api_dialogo import DialogoTransportadora, dialogo
+from api.api_magalog import MagalogTransportadora, magalog
 
 # Registro de transportadoras disponíveis
 TRANSPORTADORAS = {
     'dialogo': dialogo,
+    'magalog': magalog,
     # Adicione novas transportadoras aqui:
     # 'jadlog': jadlog,
     # 'correios': correios,
@@ -65,7 +67,9 @@ def rastrear_pedido(cpf: str, numero_fiscal: str, transportadora: str = 'dialogo
 __all__ = [
     'BaseTransportadora',
     'DialogoTransportadora',
+    'MagalogTransportadora',
     'dialogo',
+    'magalog',
     'TRANSPORTADORAS',
     'obter_transportadora',
     'rastrear_pedido'
