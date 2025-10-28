@@ -1,0 +1,41 @@
+INFO:routes.webhook:Resposta da IA: Bom dia! 
+
+Aqui estão as informações do seu pedido 📦 2564204:
+
+- Status: EXPEDIDO
+- Transportadora: 🚚 LOGAN EXPRESS DISTRIBUIÇÃO E TRANSPORTES LTDA
+- Código de Rastreio: ✅ 6353010327701
+
+📍 Deseja rastrear seu pedido em tempo real?
+
+✉️ Envie o CPF do destinatário para acompanhar a entrega.
+INFO:utils.evolutionAPI:Enviando mensagem para 553584595502 na instância Agente Luft
+INFO:utils.evolutionAPI:Mensagem: Bom dia!
+
+Aqui estão as informações do seu pedido 📦 2564204:
+
+- Status: EXPEDIDO
+- Transportadora: ...
+INFO:utils.evolutionAPI:Endpoint: http://localhost:8080/message/sendText/Agente Luft
+INFO:routes.webhook:Mensagem enviada com sucesso: {'status': 'success', 'message_id': '3EB02D3A64C390D13DC90606927558D841B98F52', 'timestamp': 1761662745}
+INFO:routes.webhook:Webhook recebido: 2025-10-28T11:46:31.285262
+INFO:routes.webhook:Processando mensagem de 553584595502: 31063939801
+INFO:werkzeug:172.34.6.154 - - [28/Oct/2025 11:46:31] "POST /webhook HTTP/1.1" 200 -
+INFO:ia:CPF detectado: 31063939801
+INFO:ia:CPF detectado - processando rastreamento
+INFO:ia:Contexto NF recuperado para 553584595502: {'numero_nf': 2564204, 'status': 'EXPEDIDO', 'transportadora': 'LOGAN EXPRESS DISTRIBUIÇÃO E TRANSPORTES LTDA', 'codigo_rastreio': '6353010327701', 'primeiro_nome': 'MABEL', 'cep': '03283010', 'tipo_rastreamento': 'cpf', 'timestamp': 1761662740.4270704}
+INFO:ia:Rastreando NF 2564204 via Logan com CPF, Nome: MABEL, CEP: 03283010
+INFO:api.api_logan:Buscando pedido Logan com dados completos
+INFO:api.api_logan:Consultando Logan com CPF: 31063939801, Nome: MABEL, CEP: 03283010
+INFO:api.api_logan:Status code Logan: 200
+INFO:api.api_logan:Extraindo pedidos da Logan do HTML
+INFO:api.api_logan:Logan: Encontradas 2 linhas de pedidos
+INFO:api.api_logan:Logan: Pedido extraído - NF: 6353010327701, Status: EM ROTA DE ENTREGA
+INFO:api.api_logan:Logan: Pedido extraído - NF: 6222612005013, Status: ENTREGA REALIZADA
+ERROR:api.api_logan:Erro ao buscar pedido Logan: 'int' object has no attribute 'strip'
+Tentando deletar chave: contexto_nf:553584595502
+INFO:routes.webhook:Resposta da IA: ❌ Não foi possível rastrear o pedido 2564204 na Logan. Verifique os dados informados.
+INFO:utils.evolutionAPI:Enviando mensagem para 553584595502 na instância Agente Luft
+INFO:utils.evolutionAPI:Mensagem: ❌ Não foi possível rastrear o pedido 2564204 na Logan. Verifique os dados informados....
+INFO:utils.evolutionAPI:Endpoint: http://localhost:8080/message/sendText/Agente Luft
+INFO:routes.webhook:Mensagem enviada com sucesso: {'status': 'success', 'message_id': '3EB0E7CED55AA435088541E65CC2B8B0DA9EA15C', 'timestamp': 1761662808}
