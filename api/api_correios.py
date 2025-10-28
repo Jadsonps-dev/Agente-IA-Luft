@@ -141,33 +141,44 @@ class CorreiosTransportadora(BaseTransportadora):
         if eventos:
             ultimo_evento = eventos[0]
             descricao_evento = ultimo_evento.get('descricao', 'N/A')
-            data_evento = ultimo_evento.get('dtHrCriado', 'N/A')
+            
+            # Extrai data formatada
+            dt_hr = ultimo_evento.get('dtHrCriado', {})
+            if isinstance(dt_hr, dict):
+                data_evento = dt_hr.get('date', 'N/A')
+                # Remove informações de timezone da data
+                if data_evento != 'N/A':
+                    # Formato: "2025-10-06 14:07:03.000000" -> "06/10/2025 14:07"
+                    try:
+                        from datetime import datetime
+                        dt_obj = datetime.strptime(data_evento.split('.')[0], '%Y-%m-%d %H:%M:%S')
+                        data_evento = dt_obj.strftime('%d/%m/%Y %H:%M')
+                    except:
+                        data_evento = str(data_evento).split('.')[0]
+            else:
+                data_evento = str(dt_hr)
             
             unidade = ultimo_evento.get('unidade', {})
-            local = unidade.get('nome', 'N/A') if unidade else 'N/A'
+            nome_unidade = unidade.get('nome', '') if isinstance(unidade, dict) else ''
+            tipo_unidade = unidade.get('tipo', '') if isinstance(unidade, dict) else ''
+            
+            # Monta local completo
+            if nome_unidade and tipo_unidade:
+                local_completo = f"Pela {tipo_unidade}, {nome_unidade}"
+            elif nome_unidade:
+                local_completo = nome_unidade
+            elif tipo_unidade:
+                local_completo = tipo_unidade
+            else:
+                local_completo = ""
             
             mensagem += f"📍 *STATUS ATUAL:*\n\n"
             mensagem += f"🔹 {descricao_evento}\n"
+            if local_completo:
+                mensagem += f"   📍 {local_completo}\n"
             mensagem += f"   📅 {data_evento}\n"
-            mensagem += f"   📍 {local}\n"
         else:
             mensagem += "❌ Nenhum evento de rastreamento disponível.\n"
-
-        mensagem += f"📍 *EVENTOS DE RASTREAMENTO:*\n\n"
-
-        for evento in eventos:
-            descricao_evento = evento.get('descricao', 'N/A')
-            dt_hr = evento.get('dtHrCriado', {})
-            data_evento = dt_hr.get('date', 'N/A') if isinstance(dt_hr, dict) else str(dt_hr)
-            unidade = evento.get('unidade', {})
-            nome_unidade = unidade.get('nome', 'N/A') if isinstance(unidade, dict) else 'N/A'
-            tipo_unidade = unidade.get('tipo', '') if isinstance(unidade, dict) else ''
-
-            mensagem += f"🔹 *{descricao_evento}*\n"
-            mensagem += f"   📅 {data_evento}\n"
-            if nome_unidade != 'N/A':
-                mensagem += f"   📍 {nome_unidade} - {tipo_unidade}\n"
-            mensagem += "\n"
 
         return mensagem.strip()
 
