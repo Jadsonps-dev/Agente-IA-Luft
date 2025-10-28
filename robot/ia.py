@@ -8,9 +8,10 @@ import os
 import logging
 from dotenv import load_dotenv
 
-from app.analisador import analisar_pergunta_com_ia, PROMPTS
-from app.consultas import consultar_nota_fiscal_e_detectar_transportadora
-from app.rastreamento import eh_cpf, eh_codigo_rastreio, processar_rastreamento
+from functions.analisador import analisar_pergunta_com_ia, PROMPTS
+from functions.consultas import consultar_nota_fiscal_e_detectar_transportadora
+from functions.rastreamento import eh_cpf, eh_codigo_rastreio, processar_rastreamento
+from functions.contexto import obter_contexto_nf
 from functions.ia_helpers import (
     verificar_interacao_usuario,
     obter_saudacao_inicial,

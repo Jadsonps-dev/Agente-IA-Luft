@@ -6,7 +6,6 @@ Separadas do módulo principal para melhor organização.
 import logging
 from datetime import datetime
 from config.globals import redis_client
-from app.contexto import obter_contexto_nf
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ def obter_saudacao_inicial() -> str:
     Returns:
         String com saudação formatada
     """
-    from app.analisador import PROMPTS
+    from functions.analisador import PROMPTS
 
     hora_atual = datetime.now().hour
     saudacao = "Boa tarde" if 12 <= hora_atual < 18 else "Bom dia" if hora_atual < 12 else "Boa noite"
@@ -87,6 +86,7 @@ def adicionar_mensagem_rastreamento(content: str, contexto: str, sender: str) ->
     if not sender:
         return content + "\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
 
+    from functions.contexto import obter_contexto_nf
     ctx_temp = obter_contexto_nf(sender)
     if not ctx_temp:
         return content + "\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
@@ -138,7 +138,7 @@ def construir_contexto_nf(dados_nf: dict) -> str:
     """
 
     if status_nf == 'EXPEDIDO':
-        from app.rastreamento import detectar_tipo_rastreamento
+        from functions.rastreamento import detectar_tipo_rastreamento
         tipo_rastreamento = detectar_tipo_rastreamento(transportadora_nf)
         transportadora_lower = transportadora_nf.lower()
 
