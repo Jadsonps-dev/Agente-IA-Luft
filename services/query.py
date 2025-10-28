@@ -34,13 +34,19 @@ class Queries:
             END AS "Status da Nota Fiscal",
 
             t.razaosocial AS "Transportadora",
-            nf.codigorastreio AS "Código Rastreio"
+            nf.codigorastreio AS "Código Rastreio",
+
+            dest.razaosocial AS "Destinatário",
+            decode(dest.pessoa, 'J', dest.cgc, dest.cic) AS "CNPJ Destinatário",
+            nfi.cep_dest AS "CEP Destinatário"
 
         FROM notafiscal nf
         JOIN nfimpressao nfi 
             ON nfi.idprenf = nf.idprenf
         LEFT JOIN entidade t 
             ON t.identidade = nf.transportadoranotafiscal
+        LEFT JOIN entidade dest
+            ON dest.identidade = nf.destinatario
 
         WHERE nf.iddepositante = {id_depositante}
           AND nf.codigointerno = '{nota_fiscal}'

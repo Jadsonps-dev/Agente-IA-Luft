@@ -27,7 +27,7 @@ class MagalogTransportadora(BaseTransportadora):
             HTML com dados do rastreamento ou string vazia em caso de erro
         """
         try:
-            logger.info(f"🔍 Consultando Magalog com código: {codigo_rastreio}")
+            logger.info(f"Consultando Magalog com código: {codigo_rastreio}")
 
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
@@ -54,11 +54,11 @@ class MagalogTransportadora(BaseTransportadora):
 
                 browser.close()
 
-                logger.info("✅ Dados da Magalog obtidos com sucesso")
+                logger.info("Dados da Magalog obtidos com sucesso")
                 return "\n".join(eventos_html)
 
         except Exception as e:
-            logger.error(f"❌ Erro ao consultar Magalog: {str(e)}")
+            logger.error(f"Erro ao consultar Magalog: {str(e)}")
             return ""
 
     def consultar_por_cpf(self, cpf: str) -> str:
@@ -66,7 +66,7 @@ class MagalogTransportadora(BaseTransportadora):
         Magalog não usa CPF, usa código de rastreio.
         Este método existe para manter compatibilidade com a interface.
         """
-        logger.warning("⚠️ Magalog usa código de rastreio, não CPF")
+        logger.warning("Magalog usa código de rastreio, não CPF")
         return ""
 
     def extrair_pedidos(self, dados_resposta: str) -> list:
@@ -90,19 +90,16 @@ class MagalogTransportadora(BaseTransportadora):
             while i < len(linhas):
                 linha = linhas[i].strip()
 
-                # Identifica linha com data (formato: DD/MM)
                 if re.match(r'^\d{2}/\d{2}$', linha):
                     data_dia = linha
                     i += 1
 
-                    # Próxima linha deve ser hora (formato: HH:MM)
                     if i < len(linhas):
                         hora = linhas[i].strip()
                         if re.match(r'^\d{2}:\d{2}$', hora):
                             data_completa = f"{data_dia} {hora}"
                             i += 1
 
-                            # Próxima linha é a descrição
                             if i < len(linhas):
                                 descricao = linhas[i].strip()
 
@@ -127,7 +124,7 @@ class MagalogTransportadora(BaseTransportadora):
                 'eventos': eventos
             }
 
-            logger.info(f"📦 Total de eventos extraídos: {len(eventos)}")
+            logger.info(f"Total de eventos extraídos: {len(eventos)}")
             return [pedido] if eventos else []
 
         except Exception as e:
@@ -145,7 +142,7 @@ class MagalogTransportadora(BaseTransportadora):
             Mensagem formatada
         """
         if not pedido:
-            return "❌ Pedido não encontrado"
+            return "Pedido não encontrado"
 
         mensagem = f"📦 *RASTREAMENTO - MAGALOG*\n\n"
 
@@ -158,12 +155,11 @@ class MagalogTransportadora(BaseTransportadora):
             mensagem += "⚠️ Nenhum evento de rastreamento encontrado."
             return mensagem
 
-        # Mostra apenas o último evento (mais recente)
         ultimo_evento = eventos[0]
         data = ultimo_evento.get('data', 'N/A')
         descricao = ultimo_evento.get('descricao', 'N/A')
 
-        mensagem += f"📝 *{descricao}*\n"
+        mensagem += f"📝 Status: *{descricao}*\n"
         mensagem += f"🕒 {data}"
 
         return mensagem
@@ -179,7 +175,7 @@ class MagalogTransportadora(BaseTransportadora):
             Dicionário com dados do pedido ou None se não encontrado
         """
         try:
-            logger.info(f"🔍 Buscando código {codigo_rastreio} na Magalog")
+            logger.info(f"Buscando código {codigo_rastreio} na Magalog")
 
             dados = self.consultar_por_codigo(codigo_rastreio)
             pedidos = self.extrair_pedidos(dados)
@@ -187,23 +183,21 @@ class MagalogTransportadora(BaseTransportadora):
             if pedidos:
                 pedido = pedidos[0]
                 pedido['codigo_rastreio'] = codigo_rastreio
-                logger.info(f"✅ Pedido {codigo_rastreio} encontrado!")
+                logger.info(f"Pedido {codigo_rastreio} encontrado!")
                 return pedido
 
-            logger.warning(f"⚠️ Código {codigo_rastreio} não encontrado")
+            logger.warning(f"Código {codigo_rastreio} não encontrado")
             return None
 
         except Exception as e:
-            logger.error(f"❌ Erro ao buscar pedido: {str(e)}")
+            logger.error(f"Erro ao buscar pedido: {str(e)}")
             return None
 
     def buscar_pedido_especifico(self, cpf: str, numero_fiscal: str) -> dict:
         """
         Magalog não usa CPF, mas mantém método para compatibilidade.
         """
-        logger.warning("⚠️ Magalog usa código de rastreio, não CPF")
+        logger.warning("Magalog usa código de rastreio, não CPF")
         return None
 
-
-# Instância global
 magalog = MagalogTransportadora()
