@@ -199,7 +199,11 @@ def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
         if status != 'EXPEDIDO':
             return f"❌ O pedido {numero_nf} não está com status EXPEDIDO. Status atual: {status}"
 
-        if tipo != tipo_esperado:
+        # Para Correios, sempre aceita código de rastreio
+        if tipo_esperado == 'correios':
+            if tipo != 'codigo':
+                return f"❌ Para rastrear pelos Correios, envie o código de rastreio (ex: AB123456789BR)."
+        elif tipo != tipo_esperado:
             if tipo_esperado == 'cpf':
                 return f"❌ A transportadora {transportadora_nome} requer o CPF do destinatário, não código de rastreio."
             else:

@@ -1,4 +1,3 @@
-
 """
 Funções auxiliares para processamento de IA.
 Separadas do módulo principal para melhor organização.
@@ -67,7 +66,7 @@ def limpar_formatacao_markdown(texto: str) -> str:
 
 def adicionar_mensagem_rastreamento(content: str, contexto: str, sender: str) -> str:
     """
-    Adiciona mensagem de rastreamento ao final da resposta se necessário.
+    Adiciona mensagem solicitando CPF ou código de rastreio quando NF é EXPEDIDO.
 
     Args:
         content: Conteúdo da resposta
@@ -75,32 +74,22 @@ def adicionar_mensagem_rastreamento(content: str, contexto: str, sender: str) ->
         sender: Número do remetente
 
     Returns:
-        Conteúdo com mensagem de rastreamento adicionada
+        Conteúdo com mensagem adicional se necessário
     """
-    if "AÇÃO OBRIGATÓRIA" not in contexto:
-        return content
+    if "EXPEDIDO" in contexto and sender:
+        from functions.contexto import obter_contexto_nf
+        ctx = obter_contexto_nf(sender)
 
-    if "📍 Deseja rastrear" in content:
-        return content
+        if ctx:
+            tipo_rastreamento = ctx.get('tipo_rastreamento', 'cpf')
+            transportadora = ctx.get('transportadora', '')
 
-    if not sender:
-        return content + "\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
-
-    from functions.contexto import obter_contexto_nf
-    ctx_temp = obter_contexto_nf(sender)
-    if not ctx_temp:
-        return content + "\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
-
-    tipo_rastreamento = ctx_temp.get('tipo_rastreamento', 'cpf')
-    codigo_rastreio = ctx_temp.get('codigo_rastreio', '')
-    transportadora_ctx = ctx_temp.get('transportadora', '').lower()
-
-    if tipo_rastreamento == 'codigo' and codigo_rastreio:
-        content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o código de rastreio: {codigo_rastreio}"
-    elif 'logan' in transportadora_ctx:
-        content += "\n\n📍 Deseja rastrear seu pedido em tempo real?\n\n✉️ Envie o *CPF do destinatário* para acompanhar a entrega."
-    else:
-        content += "\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
+            if tipo_rastreamento == 'correios':
+                content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o código de rastreio."
+            elif tipo_rastreamento == 'codigo':
+                content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o código de rastreio."
+            else:
+                content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
 
     return content
 
