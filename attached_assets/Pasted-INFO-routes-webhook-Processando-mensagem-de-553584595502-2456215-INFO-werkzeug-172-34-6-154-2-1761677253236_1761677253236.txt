@@ -1,0 +1,42 @@
+INFO:routes.webhook:Processando mensagem de 553584595502: 2456215
+INFO:werkzeug:172.34.6.154 - - [28/Oct/2025 15:45:57] "POST /webhook HTTP/1.1" 200 -
+INFO:httpx:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:functions.analisador:OpenAI analisou: {'tipo_consulta': 'nota_fiscal', 'numero_nf': '2456215'}
+INFO:robot.ia:IA detectou busca de NF: 2456215
+INFO:functions.consultas:Consultando nota fiscal 2456215 no depositante 2361178
+EstruturaSQL inicializada com query personalizada
+Fazendo login na API...
+Login realizado com sucesso!
+Período da consulta: 30/07/2025 a 28/10/2025
+Fazendo requisição para GridService...
+Tempo da requisição: 0.53 segundos
+Requisição API realizada com sucesso!
+INFO:functions.consultas:Dados da NF 2456215 encontrados no depositante 2361178
+Sessão HTTP fechada
+INFO:functions.contexto:Contexto NF salvo para 553584595502: NF=2456215, Status=EXPEDIDO, Transportadora=EMPRESA BRASILEIRA DE CORREIOS E TELEGRAFOS, Tipo=correios
+INFO:httpx:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:routes.webhook:Resposta da IA: A nota fiscal 2456215 possui as seguintes informações:
+
+- Status: EXPEDIDO
+- Transportadora: EMPRESA BRASILEIRA DE CORREIOS E TELEGRAFOS 🚚
+- Código de Rastreio: AB569530491BR ✅
+
+📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário.
+INFO:utils.evolutionAPI:Enviando mensagem para 553584595502 na instância Agente Luft
+INFO:utils.evolutionAPI:Mensagem: A nota fiscal 2456215 possui as seguintes informações:
+
+- Status: EXPEDIDO
+- Transportadora: EMPRESA...
+INFO:utils.evolutionAPI:Endpoint: http://localhost:8080/message/sendText/Agente Luft
+INFO:routes.webhook:Mensagem enviada com sucesso: {'status': 'success', 'message_id': '3EB04194E0C4813582E47FB52C7B07194C7E8BA1', 'timestamp': 1761677180}
+INFO:routes.webhook:Webhook recebido: 2025-10-28T15:46:42.548106
+INFO:routes.webhook:Processando mensagem de 553584595502: AB569530491BR
+INFO:werkzeug:172.34.6.154 - - [28/Oct/2025 15:46:42] "POST /webhook HTTP/1.1" 200 -
+INFO:functions.rastreamento:Código de rastreio alfanumérico detectado: AB569530491BR
+INFO:robot.ia:Código de rastreio detectado - processando rastreamento
+INFO:functions.contexto:Contexto NF recuperado para 553584595502: {'numero_nf': 2456215, 'status': 'EXPEDIDO', 'transportadora': 'EMPRESA BRASILEIRA DE CORREIOS E TELEGRAFOS', 'codigo_rastreio': 'AB569530491BR', 'primeiro_nome': 'ANDRE', 'cep': '88075000', 'tipo_rastreamento': 'correios', 'timestamp': 1761677175.7954948}
+INFO:routes.webhook:Resposta da IA: ❌ A transportadora EMPRESA BRASILEIRA DE CORREIOS E TELEGRAFOS requer o código de rastreio, não CPF.   
+INFO:utils.evolutionAPI:Enviando mensagem para 553584595502 na instância Agente Luft
+INFO:utils.evolutionAPI:Mensagem: ❌ A transportadora EMPRESA BRASILEIRA DE CORREIOS E TELEGRAFOS requer o código de rastreio, não CPF....  
+INFO:utils.evolutionAPI:Endpoint: http://localhost:8080/message/sendText/Agente Luft
+INFO:routes.webhook:Mensagem enviada com sucesso: {'status': 'success', 'message_id': '3EB0F00F7D0144CEBD23708F3BF026AF62A40440', 'timestamp': 1761677219}
