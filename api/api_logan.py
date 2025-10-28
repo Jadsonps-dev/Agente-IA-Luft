@@ -1,4 +1,3 @@
-
 """
 API de rastreamento para Logan Express.
 """

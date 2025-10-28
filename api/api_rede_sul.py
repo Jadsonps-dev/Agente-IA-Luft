@@ -210,7 +210,7 @@ class RedesulTransportadora(BaseTransportadora):
             mensagem += "\n⚠️ Nenhum evento de rastreamento encontrado."
             return mensagem
 
-        mensagem += "\n📍 *HISTÓRICO DE RASTREAMENTO:*\n"
+        mensagem += "\n📍 *STATUS DE RASTREAMENTO:*\n"
 
         ultimo_evento = eventos[-1]   
 
