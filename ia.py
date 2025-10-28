@@ -491,12 +491,15 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
 
                     if status_nf == 'EXPEDIDO':
                         tipo_rastreamento = detectar_tipo_rastreamento(transportadora_nf)
+                        transportadora_lower = transportadora_nf.lower()
 
                         if tipo_rastreamento == 'codigo':
                             if codigo_rastreio_nf and codigo_rastreio_nf != 'Não disponível':
                                 mensagem_rastreamento = f"📍 Deseja rastrear seu pedido em tempo real? Basta enviar o código de rastreio abaixo:\n\n🔢 Código: {codigo_rastreio_nf}"
                             else:
                                 mensagem_rastreamento = "📍 Para rastrear seu pedido, envie o código de rastreio fornecido pela transportadora."
+                        elif 'logan' in transportadora_lower:
+                            mensagem_rastreamento = "📍 Deseja rastrear seu pedido em tempo real?\n\n✉️ Envie o *CPF do destinatário* para acompanhar a entrega."
                         else:
                             mensagem_rastreamento = "📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
 
@@ -551,9 +554,12 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                     if ctx_temp:
                         tipo_rastreamento = ctx_temp.get('tipo_rastreamento', 'cpf')
                         codigo_rastreio = ctx_temp.get('codigo_rastreio', '')
+                        transportadora_ctx = ctx_temp.get('transportadora', '').lower()
 
                         if tipo_rastreamento == 'codigo' and codigo_rastreio:
                             content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o código de rastreio: {codigo_rastreio}"
+                        elif 'logan' in transportadora_ctx:
+                            content += "\n\n📍 Deseja rastrear seu pedido em tempo real?\n\n✉️ Envie o *CPF do destinatário* para acompanhar a entrega."
                         else:
                             content += "\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
                     else:

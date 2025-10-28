@@ -83,14 +83,49 @@ class LoganTransportadora(BaseTransportadora):
             soup = BeautifulSoup(dados_resposta, 'html.parser')
 
             pedidos = []
-            # A estrutura exata dependerá do HTML retornado pela Logan
-            # Este é um exemplo que deve ser ajustado conforme necessário
             
-            logger.info(f"Extraindo pedidos da Logan")
+            logger.info(f"Extraindo pedidos da Logan do HTML")
             
-            # Aqui você precisará implementar a lógica específica 
-            # para extrair os dados do HTML da Logan
-            # Por enquanto, retornando estrutura básica
+            # Busca a tabela com id='grid'
+            tabela = soup.find('table', {'id': 'grid'})
+            
+            if not tabela:
+                logger.warning("Logan: Tabela de pedidos não encontrada no HTML")
+                return []
+            
+            # Pega todas as linhas da tabela (exceto o cabeçalho)
+            linhas = tabela.find_all('tr', class_='linha')
+            
+            logger.info(f"Logan: Encontradas {len(linhas)} linhas de pedidos")
+            
+            for linha in linhas:
+                colunas = linha.find_all('td', class_='linhacelula')
+                
+                if len(colunas) >= 6:
+                    tomador = colunas[0].get_text(strip=True)
+                    numero_fiscal = colunas[1].get_text(strip=True)
+                    coletado_em = colunas[2].get_text(strip=True)
+                    previsao_entrega = colunas[3].get_text(strip=True)
+                    
+                    # Extrai status e link do rastreamento
+                    status_link = colunas[4].find('a')
+                    status = status_link.get_text(strip=True) if status_link else colunas[4].get_text(strip=True)
+                    link_rastreamento = status_link.get('href') if status_link else ''
+                    
+                    pedido_transportadora = colunas[5].get_text(strip=True)
+                    
+                    pedido = {
+                        'numero_fiscal': numero_fiscal,
+                        'tomador': tomador,
+                        'data_coleta': coletado_em,
+                        'previsao_entrega': previsao_entrega,
+                        'status': status,
+                        'link_rastreamento': link_rastreamento,
+                        'pedido_transportadora': pedido_transportadora
+                    }
+                    
+                    pedidos.append(pedido)
+                    logger.info(f"Logan: Pedido extraído - NF: {numero_fiscal}, Status: {status}")
             
             return pedidos
 
@@ -116,22 +151,20 @@ class LoganTransportadora(BaseTransportadora):
         if pedido.get('numero_fiscal'):
             mensagem += f"📋 *NF:* {pedido['numero_fiscal']}\n"
 
-        if pedido.get('destinatario'):
-            mensagem += f"👤 *Destinatário:* {pedido['destinatario']}\n"
+        if pedido.get('tomador'):
+            mensagem += f"🏢 *Tomador:* {pedido['tomador']}\n"
 
-        mensagem += "\n📍 *HISTÓRICO DE RASTREAMENTO:*\n"
+        if pedido.get('pedido_transportadora'):
+            mensagem += f"🔢 *Pedido Transportadora:* {pedido['pedido_transportadora']}\n\n"
 
-        eventos = pedido.get('eventos', [])
-        if not eventos:
-            mensagem += "\n⚠️ Nenhum evento de rastreamento encontrado."
-            return mensagem
+        if pedido.get('data_coleta'):
+            mensagem += f"📅 *Coletado em:* {pedido['data_coleta']}\n"
 
-        for evento in eventos:
-            data = evento.get('data', 'N/A')
-            status = evento.get('status', 'N/A')
-            
-            mensagem += f"\n📝 *{status}*\n"
-            mensagem += f"🕒 {data}\n"
+        if pedido.get('previsao_entrega'):
+            mensagem += f"⏰ *Previsão de Entrega:* {pedido['previsao_entrega']}\n\n"
+
+        if pedido.get('status'):
+            mensagem += f"📝 *Status:* {pedido['status']}"
 
         return mensagem
 
