@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from utils.evolutionAPI import EvolutionAPI
-from ia import perguntar_ia
+from robot.ia import perguntar_ia
 import logging
 from datetime import datetime
 import os

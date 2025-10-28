@@ -87,7 +87,7 @@ class EvolutionAPI:
                 "number": f"{phone}",
                 "mediatype": "image",
                 "mimetype": "image/png",  
-                "caption": "Escaneie este QR Code para vincular seu WhatsApp. 📲",
+                "caption": "",
                 "media": base64_image,
                 "fileName": qr_filename.split("/")[-1]
             }
