@@ -8,3 +8,4 @@ __pycache__
 pyproject.toml
 .replit
 uv.lock
+.env

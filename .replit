@@ -1,9 +1,0 @@
-modules = ["python-3.11"]
-
-[nix]
-channel = "stable-25_05"
-packages = ["bzip2", "c-blosc", "hdf5", "lzo"]
-
-[[ports]]
-localPort = 5000
-externalPort = 80
