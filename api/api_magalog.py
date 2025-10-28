@@ -178,8 +178,8 @@ class MagalogTransportadora(BaseTransportadora):
         try:
             logger.info(f"🔍 Buscando código {codigo_rastreio} na Magalog")
             
-            html = self.consultar_por_codigo(codigo_rastreio)
-            pedidos = self.extrair_pedidos(html)
+            dados = self.consultar_por_codigo(codigo_rastreio)
+            pedidos = self.extrair_pedidos(dados)
             
             if pedidos:
                 pedido = pedidos[0]
@@ -193,6 +193,13 @@ class MagalogTransportadora(BaseTransportadora):
         except Exception as e:
             logger.error(f"❌ Erro ao buscar pedido: {str(e)}")
             return None
+    
+    def buscar_pedido_especifico(self, cpf: str, numero_fiscal: str) -> dict:
+        """
+        Magalog não usa CPF, mas mantém método para compatibilidade.
+        """
+        logger.warning("⚠️ Magalog usa código de rastreio, não CPF")
+        return None
 
 
 # Instância global

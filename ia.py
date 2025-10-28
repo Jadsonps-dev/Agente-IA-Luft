@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import re
 import json
 from datetime import datetime, timedelta
+import time
 from services.wms import EstruturaSQL
 from services.query import Queries
 from config.globals import redis_client
@@ -225,119 +226,160 @@ def consultar_nota_fiscal(numero_nf):
 def eh_cpf(mensagem: str) -> bool:
     """
     Detecta se a mensagem é um CPF (com ou sem pontuação).
-    
+
     Args:
         mensagem: Texto da mensagem
-        
+
     Returns:
         True se é um CPF válido
     """
     # Remove pontuação
     cpf_limpo = re.sub(r'\D', '', mensagem.strip())
-    
+
     # CPF deve ter 11 dígitos
     if len(cpf_limpo) == 11 and cpf_limpo.isdigit():
         logger.info(f"✅ CPF detectado: {cpf_limpo}")
         return True
-    
+
     return False
 
 
-def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora: str = None):
+def eh_codigo_rastreio(mensagem: str) -> bool:
     """
-    Salva contexto da última NF consultada para rastreamento posterior.
-    
+    Detecta se uma mensagem é um código de rastreio.
+    Geralmente são códigos alfanuméricos (letras + números).
+
+    Args:
+        mensagem: Mensagem do usuário
+
+    Returns:
+        True se parecer um código de rastreio
+    """
+    # Remove espaços e pontuação
+    codigo = mensagem.strip().upper()
+
+    # Código de rastreio geralmente tem letras e números, entre 10-20 caracteres
+    # Exemplos: "BR123456789BR", "AA123456789BR", etc
+    if 8 <= len(codigo) <= 25:
+        tem_letra = any(c.isalpha() for c in codigo)
+        tem_numero = any(c.isdigit() for c in codigo)
+
+        if tem_letra and tem_numero:
+            logger.info(f"✅ Código de rastreio detectado: {codigo}")
+            return True
+
+    return False
+
+
+def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora: str = '', codigo_rastreio: str = ''):
+    """
+    Salva contexto de NF consultada no Redis.
+
     Args:
         sender: Número do remetente
         numero_nf: Número da nota fiscal
-        status: Status do pedido
-        transportadora: Nome da transportadora retornada do WMS
+        status: Status da NF
+        transportadora: Nome da transportadora
+        codigo_rastreio: Código de rastreio (se disponível)
     """
-    if not sender:
-        return
-    
-    contexto_key = f"contexto_nf:{sender}"
     contexto = {
-        "numero_nf": numero_nf,
-        "status": status,
-        "transportadora": transportadora,
-        "timestamp": datetime.now().isoformat()
+        'numero_nf': numero_nf,
+        'status': status,
+        'transportadora': transportadora,
+        'codigo_rastreio': codigo_rastreio,
+        'timestamp': time.time()
     }
-    
-    # Expira em 10 minutos
-    redis_client.set(contexto_key, contexto, ex=600)
-    logger.info(f"💾 Contexto NF salvo para {sender}: NF={numero_nf}, Status={status}, Transportadora={transportadora}")
+
+    redis_client.set(f"contexto_nf:{sender}", contexto, ex=600)  # Expira em 10 minutos
+    logger.info(f"💾 Contexto NF salvo para {sender}: NF={numero_nf}, Status={status}, Transportadora={transportadora}, Código={codigo_rastreio}")
 
 
 def obter_contexto_nf(sender: str):
     """
     Obtém contexto da última NF consultada.
-    
+
     Args:
         sender: Número do remetente
-        
+
     Returns:
         Dict com contexto ou None
     """
     if not sender:
         return None
-    
+
     contexto_key = f"contexto_nf:{sender}"
     contexto = redis_client.get(contexto_key)
-    
+
     if contexto:
         logger.info(f"📖 Contexto NF recuperado para {sender}: {contexto}")
-    
+
     return contexto
 
 
-def processar_rastreamento_cpf(cpf: str, sender: str) -> str:
+def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
     """
-    Processa rastreamento quando usuário envia CPF.
-    
+    Processa o rastreamento com base no tipo (CPF ou código de rastreio).
+
     Args:
-        cpf: CPF do destinatário
-        sender: Número do remetente
-        
+        mensagem: Mensagem do usuário contendo CPF ou código.
+        sender: Número do remetente.
+        tipo: 'cpf' ou 'codigo'.
+
     Returns:
-        Mensagem formatada com rastreamento ou erro
+        Mensagem formatada com rastreamento ou erro.
     """
     try:
-        # Verifica se há contexto de NF consultada
         contexto = obter_contexto_nf(sender)
-        
+
         if not contexto:
-            return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie seu CPF."
-        
+            if tipo == 'cpf':
+                return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie seu CPF."
+            else:
+                return "❌ Para rastrear seu pedido, primeiro consulte o número da nota fiscal e depois envie o código de rastreio."
+
         numero_nf = contexto.get('numero_nf')
         status = contexto.get('status', '')
         transportadora_nome = contexto.get('transportadora', '')
-        
-        # Verifica se o pedido está expedido
+        codigo_rastreio_contexto = contexto.get('codigo_rastreio', '')
+
         if status != 'EXPEDIDO':
             return f"❌ O pedido {numero_nf} não está com status EXPEDIDO. Status atual: {status}"
-        
-        # Detecta qual transportadora usar baseado no nome retornado do WMS
-        transportadora_key = 'dialogo'  # padrão
-        
-        if transportadora_nome:
-            nome_lower = transportadora_nome.lower()
-            if 'dialogo' in nome_lower or 'diálogo' in nome_lower:
+
+        resultado = ""
+        transportadora_key = ''
+
+        if tipo == 'cpf':
+            if not transportadora_nome:
+                return "❌ Não foi possível determinar a transportadora para rastreamento."
+
+            transportadora_lower = transportadora_nome.lower()
+            if 'dialogo' in transportadora_lower or 'diálogo' in transportadora_lower:
                 transportadora_key = 'dialogo'
-            # Adicionar outras transportadoras aqui no futuro
-            # elif 'jadlog' in nome_lower:
-            #     transportadora_key = 'jadlog'
-        
-        logger.info(f"🔍 Rastreando NF {numero_nf} com CPF fornecido via {transportadora_key}")
-        
-        # Chama API de rastreamento
-        resultado = rastrear_pedido(cpf, numero_nf, transportadora=transportadora_key)
-        
+            else:
+                # Outras transportadoras que pedem CPF
+                transportadora_key = 'dialogo' # Padrão se não for Magalog
+            logger.info(f"🔍 Rastreando NF {numero_nf} com CPF fornecido via {transportadora_key}")
+            resultado = rastrear_pedido(mensagem, numero_nf, transportadora=transportadora_key)
+
+        elif tipo == 'codigo':
+            if not codigo_rastreio_contexto:
+                return "❌ Não há código de rastreio associado a este pedido no momento."
+
+            transportadora_lower = transportadora_nome.lower()
+            if 'magalog' in transportadora_lower:
+                transportadora_key = 'magalog'
+                logger.info(f"🔍 Rastreando NF {numero_nf} com código de rastreio {codigo_rastreio_contexto} via {transportadora_key}")
+                resultado = rastrear_pedido(codigo_rastreio_contexto, numero_nf, transportadora=transportadora_key)
+            else:
+                # Se não for Magalog, mas o usuário enviou código, pode ser um erro ou outra transportadora não suportada.
+                # Por enquanto, tratamos como erro ou informamos que não é o esperado.
+                return f"❌ O código de rastreio fornecido não é esperado para a transportadora {transportadora_nome}. Por favor, envie o CPF do destinatário."
+
         # Limpa contexto após usar
         redis_client.delete(f"contexto_nf:{sender}")
-        
+
         return resultado
-        
+
     except Exception as e:
         logger.error(f"❌ Erro ao processar rastreamento: {str(e)}")
         return "❌ Erro ao buscar rastreamento. Tente novamente em alguns instantes."
@@ -345,11 +387,15 @@ def processar_rastreamento_cpf(cpf: str, sender: str) -> str:
 
 def perguntar_ia(mensagem_usuario, instance=None, sender=None):
     try:
-        # PRIORIDADE 1: Detectar se é CPF para rastreamento
-        if eh_cpf(mensagem_usuario) and sender:
-            logger.info("📦 Mensagem detectada como CPF - processando rastreamento")
-            return processar_rastreamento_cpf(mensagem_usuario, sender)
-        
+        # PRIORIDADE 1: Detectar CPF ou Código de Rastreio ANTES de qualquer outra análise
+        if eh_cpf(mensagem_usuario):
+            logger.info("🎯 CPF detectado - processando rastreamento")
+            return processar_rastreamento(mensagem_usuario, sender, tipo='cpf')
+
+        if eh_codigo_rastreio(mensagem_usuario):
+            logger.info("🎯 Código de rastreio detectado - processando rastreamento")
+            return processar_rastreamento(mensagem_usuario, sender, tipo='codigo')
+
         contexto = ""
 
         ja_interagiu = False
@@ -371,28 +417,29 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                 if dados_nf and dados_nf.get('encontrado'):
                     status_nf = dados_nf['status']
                     transportadora_nf = dados_nf.get('transportadora', '')
-                    
+                    codigo_rastreio_nf = dados_nf.get('codigo_rastreio', '')
+
                     # Salva contexto se status = EXPEDIDO
                     if status_nf == 'EXPEDIDO' and sender:
-                        salvar_contexto_nf(sender, dados_nf['numero_nf'], status_nf, transportadora_nf)
-                    
+                        salvar_contexto_nf(sender, dados_nf['numero_nf'], status_nf, transportadora_nf, codigo_rastreio_nf)
+
                     # Monta contexto base
                     contexto = f"""
                         INFORMAÇÕES DA NOTA FISCAL {dados_nf['numero_nf']}:
                         - Status: {status_nf}
-                        - Transportadora: {dados_nf['transportadora']}
-                        - Código de Rastreio: {dados_nf['codigo_rastreio']}
+                        - Transportadora: {transportadora_nf}
+                        - Código de Rastreio: {codigo_rastreio_nf}
                     """
-                    
+
                     # Se EXPEDIDO, adiciona instrução OBRIGATÓRIA para oferecer rastreamento
                     if status_nf == 'EXPEDIDO':
                         contexto += """
-                        
+
                         ⚠️ AÇÃO OBRIGATÓRIA - O pedido está EXPEDIDO:
                         Você DEVE incluir na sua resposta a seguinte mensagem EXATAMENTE como está escrito:
-                        
+
                         "📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
-                        
+
                         Esta mensagem deve aparecer AO FINAL da sua resposta, após as informações da nota fiscal.
                         NÃO OMITA esta mensagem. É OBRIGATÓRIO incluí-la.
                         """
@@ -430,14 +477,57 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
             content = content.replace("**", "").replace("*",
                                                         "").replace("__", "")
             content = content.strip()
-            
+
             # Se foi uma consulta de NF EXPEDIDO, garantir que a mensagem de rastreamento está incluída
             if "AÇÃO OBRIGATÓRIA" in contexto and "📍 Deseja rastrear" not in content:
                 content += "\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
-            
+
             return content
         return "Não foi possível gerar uma resposta."
 
     except Exception as e:
         logger.error(f"Erro ao consultar IA: {str(e)}")
         return "Desculpe, ocorreu um erro ao processar sua solicitação."
+
+# Função para consulta de NF e extração de dados, com atualização para detectar transportadora
+def consultar_nota_fiscal_e_detectar_transportadora(numero_nf, sender):
+    """
+    Consulta informações da nota fiscal e detecta a transportadora para solicitar
+    a informação correta (CPF ou código de rastreio) se o status for EXPEDIDO.
+    """
+    dados_nf = consultar_nota_fiscal(numero_nf)
+
+    if not dados_nf or not dados_nf.get('encontrado'):
+        return dados_nf
+
+    status_atual = dados_nf['status']
+    transportadora = dados_nf.get('transportadora', '')
+    codigo_rastreio = dados_nf.get('codigo_rastreio', '')
+
+    # Se estiver EXPEDIDO, salva contexto e oferece rastreamento
+    if status_atual == "EXPEDIDO":
+        transportadora_lower = transportadora.lower()
+        if 'magalog' in transportadora_lower:
+            salvar_contexto_nf(sender, dados_nf['numero_nf'], status_atual, transportadora, codigo_rastreio)
+            # Instrui IA a oferecer rastreamento com código
+            prompt_para_ia = f"O pedido {dados_nf['numero_nf']} está EXPEDIDO via {transportadora}. O código de rastreio é {codigo_rastreio}. Solicite o código de rastreio se o cliente quiser rastrear."
+        else:
+            # Dialogo e outras transportadoras usam CPF
+            salvar_contexto_nf(sender, dados_nf['numero_nf'], status_atual, transportadora, codigo_rastreio)
+            # Instrui IA a oferecer rastreamento com CPF
+            prompt_para_ia = f"O pedido {dados_nf['numero_nf']} está EXPEDIDO via {transportadora}. Solicite o CPF do destinatário para rastrear a entrega."
+
+        # Retorna dados da NF e a instrução adicional para a IA
+        return {**dados_nf, 'prompt_adicional': prompt_para_ia}
+    else:
+        # Se não estiver EXPEDIDO, apenas retorna os dados da NF
+        return dados_nf
+
+# Função para consultar NF que será chamada pela IA
+def consultar_nota_fiscal_wms(numero_nf: str, empresa: str = None, id_depositante: str = None, sender: str = None):
+    """
+    Wrapper para consultar_nota_fiscal que inclui o sender para salvar contexto.
+    """
+    # Ignora empresa e id_depositante por enquanto, pois a lógica atual já busca em todos
+    dados_nf = consultar_nota_fiscal_e_detectar_transportadora(numero_nf, sender)
+    return dados_nf
