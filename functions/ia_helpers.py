@@ -76,17 +76,21 @@ def adicionar_mensagem_rastreamento(content: str, contexto: str, sender: str) ->
     Returns:
         Conteúdo com mensagem adicional se necessário
     """
+    # Evita adicionar mensagem se já existe no conteúdo
+    if "📍 Deseja rastrear" in content:
+        return content
+    
     if "EXPEDIDO" in contexto and sender:
         from functions.contexto import obter_contexto_nf
         ctx = obter_contexto_nf(sender)
 
         if ctx:
             tipo_rastreamento = ctx.get('tipo_rastreamento', 'cpf')
-            transportadora = ctx.get('transportadora', '')
+            codigo_rastreio = ctx.get('codigo_rastreio', '')
 
             if tipo_rastreamento == 'correios':
                 content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o código de rastreio."
-            elif tipo_rastreamento == 'codigo':
+            elif tipo_rastreamento == 'codigo' and codigo_rastreio:
                 content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o código de rastreio."
             else:
                 content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."

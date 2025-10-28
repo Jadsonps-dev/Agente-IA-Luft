@@ -121,6 +121,71 @@ def receber_webhook():
                 resposta = perguntar_ia(mensagem, instance_name, sender_number)
                 logger.info(f"Resposta da IA: {resposta}")
 
+                # Verifica se é resposta especial dos Correios
+                if isinstance(resposta, dict):
+                    tipo_resposta = resposta.get('tipo')
+                    
+                    if tipo_resposta == 'correios_solicitar_captcha':
+                        # Baixa e envia captcha
+                        from functions.rastreamento import processar_correios_captcha
+                        captcha_path, erro = processar_correios_captcha(sender_number)
+                        
+                        if erro:
+                            evolution.enviar_mensagem(
+                                message=erro,
+                                instance=instance_name,
+                                instance_key=api_key,
+                                sender_number=sender_number
+                            )
+                        else:
+                            # Envia mensagem pedindo captcha
+                            evolution.enviar_mensagem(
+                                message="🔐 Para rastrear pelos Correios, resolva o captcha abaixo:",
+                                instance=instance_name,
+                                instance_key=api_key,
+                                sender_number=sender_number
+                            )
+                            time.sleep(1)
+                            
+                            # Envia imagem do captcha
+                            evolution.enviar_imagem(
+                                instance=instance_name,
+                                apikey=api_key,
+                                phone=sender_number,
+                                qr_filename=captcha_path
+                            )
+                        return
+                    
+                    elif tipo_resposta == 'correios_novo_captcha':
+                        # Captcha errado, envia novo
+                        from functions.rastreamento import processar_correios_captcha
+                        captcha_path, erro = processar_correios_captcha(sender_number)
+                        
+                        if erro:
+                            evolution.enviar_mensagem(
+                                message=erro,
+                                instance=instance_name,
+                                instance_key=api_key,
+                                sender_number=sender_number
+                            )
+                        else:
+                            evolution.enviar_mensagem(
+                                message="❌ Captcha inválido. Tente novamente:\n\n🔐 Digite o texto da imagem abaixo:",
+                                instance=instance_name,
+                                instance_key=api_key,
+                                sender_number=sender_number
+                            )
+                            time.sleep(1)
+                            
+                            evolution.enviar_imagem(
+                                instance=instance_name,
+                                apikey=api_key,
+                                phone=sender_number,
+                                qr_filename=captcha_path
+                            )
+                        return
+
+                # Resposta normal de texto
                 response_data = evolution.enviar_mensagem(
                     message=resposta,
                     instance=instance_name,
