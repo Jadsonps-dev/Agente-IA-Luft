@@ -300,6 +300,9 @@ def detectar_tipo_rastreamento(transportadora: str) -> str:
     
     if 'logan' in transportadora_lower:
         return 'cpf'
+    
+    if 'cooperativa' in transportadora_lower or 'rede sul' in transportadora_lower:
+        return 'cpf'
 
     return 'cpf'
 
@@ -424,6 +427,20 @@ def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
                 resultado = logan_api.formatar_rastreamento(pedido)
             else:
                 resultado = f"❌ Não foi possível rastrear o código {codigo_rastreio_wms} na Logan. Verifique os dados informados."
+        
+        elif 'cooperativa' in transportadora_lower or 'rede sul' in transportadora_lower:
+            transportadora_key = 'redesul'
+            dado_rastreio = mensagem
+            logger.info(f"Rastreando NF {numero_nf} via Rede Sul com CPF")
+            
+            from api import obter_transportadora
+            redesul_api = obter_transportadora('redesul')
+            pedido = redesul_api.buscar_pedido_especifico(dado_rastreio, numero_nf)
+            
+            if pedido:
+                resultado = redesul_api.formatar_rastreamento(pedido)
+            else:
+                resultado = f"❌ Não foi possível rastrear o pedido {numero_nf} na Rede Sul. Verifique os dados informados."
         
         elif 'dialogo' in transportadora_lower or 'diálogo' in transportadora_lower:
             transportadora_key = 'dialogo'
