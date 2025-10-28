@@ -132,7 +132,12 @@ def construir_contexto_nf(dados_nf: dict) -> str:
         tipo_rastreamento = detectar_tipo_rastreamento(transportadora_nf)
         transportadora_lower = transportadora_nf.lower()
 
-        if tipo_rastreamento == 'codigo':
+        if tipo_rastreamento == 'correios':
+            if codigo_rastreio_nf and codigo_rastreio_nf != 'Não disponível':
+                mensagem_rastreamento = f"📍 Deseja rastrear seu pedido? Basta enviar o código de rastreio abaixo:\n\n🔢 Código: {codigo_rastreio_nf}"
+            else:
+                mensagem_rastreamento = "📍 Para rastrear seu pedido dos Correios, envie o código de rastreio."
+        elif tipo_rastreamento == 'codigo':
             if codigo_rastreio_nf and codigo_rastreio_nf != 'Não disponível':
                 mensagem_rastreamento = f"📍 Deseja rastrear seu pedido? Basta enviar o código de rastreio abaixo:\n\n🔢 Código: {codigo_rastreio_nf}"
             else:

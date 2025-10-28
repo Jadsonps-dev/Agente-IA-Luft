@@ -203,11 +203,10 @@ def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
         if tipo_esperado == 'correios':
             if tipo != 'codigo':
                 return f"❌ Para rastrear pelos Correios, envie o código de rastreio (ex: AB123456789BR)."
-        elif tipo != tipo_esperado:
-            if tipo_esperado == 'cpf':
-                return f"❌ A transportadora {transportadora_nome} requer o CPF do destinatário, não código de rastreio."
-            else:
-                return f"❌ A transportadora {transportadora_nome} requer o código de rastreio, não CPF."
+        elif tipo_esperado == 'codigo' and tipo != 'codigo':
+            return f"❌ A transportadora {transportadora_nome} requer o código de rastreio, não CPF."
+        elif tipo_esperado == 'cpf' and tipo != 'cpf':
+            return f"❌ A transportadora {transportadora_nome} requer o CPF do destinatário, não código de rastreio."
 
         transportadora_lower = transportadora_nome.lower()
         

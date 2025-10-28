@@ -24,10 +24,8 @@ def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora:
         tipo_rastreamento: Tipo de rastreamento (cpf ou rastreio)
     """
 
-    if 'CORREIOS' in transportadora.upper() and codigo_rastreio:
-        tipo_rastreamento_determinado = 'rastreio'
-    elif 'CORREIOS' in transportadora.upper() and not codigo_rastreio:
-        tipo_rastreamento_determinado = 'cpf'
+    if 'CORREIOS' in transportadora.upper() or 'EMPRESA BRASILEIRA' in transportadora.upper():
+        tipo_rastreamento_determinado = 'correios'
     else:
         tipo_rastreamento_determinado = detectar_tipo_rastreamento(transportadora)
 
