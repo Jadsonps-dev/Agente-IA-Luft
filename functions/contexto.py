@@ -23,17 +23,13 @@ def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora:
         cep: CEP do destinatário
         tipo_rastreamento: Tipo de rastreamento (cpf ou rastreio)
     """
-    # A função detectar_tipo_rastreamento já está sendo usada para determinar o tipo,
-    # mas o parâmetro da função salvar_contexto_nf permite sobrescrever se necessário ou ser mais explícito.
-    # Para este caso específico, vamos garantir que se for Correios, o tipo seja 'rastreio' se o código já for fornecido,
-    # caso contrário, o padrão 'cpf' é mantido para solicitar o CPF.
+
     if 'CORREIOS' in transportadora.upper() and codigo_rastreio:
         tipo_rastreamento_determinado = 'rastreio'
     elif 'CORREIOS' in transportadora.upper() and not codigo_rastreio:
         tipo_rastreamento_determinado = 'cpf'
     else:
         tipo_rastreamento_determinado = detectar_tipo_rastreamento(transportadora)
-
 
     contexto = {
         'numero_nf': numero_nf,
@@ -48,7 +44,6 @@ def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora:
 
     redis_client.set(f"contexto_nf:{sender}", contexto, ex=600)
     logger.info(f"Contexto NF salvo para {sender}: NF={numero_nf}, Status={status}, Transportadora={transportadora}, Tipo={tipo_rastreamento_determinado}")
-
 
 def obter_contexto_nf(sender: str):
     """

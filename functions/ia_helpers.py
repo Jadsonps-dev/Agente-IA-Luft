@@ -31,7 +31,6 @@ def verificar_interacao_usuario(sender: str) -> bool:
     redis_client.set(historico_key, {"interagiu": True}, ex=3600)
     return False
 
-
 def obter_saudacao_inicial() -> str:
     """
     Retorna saudação inicial baseada no horário.
@@ -45,7 +44,6 @@ def obter_saudacao_inicial() -> str:
     saudacao = "Boa tarde" if 12 <= hora_atual < 18 else "Bom dia" if hora_atual < 12 else "Boa noite"
 
     return PROMPTS['prompts']['saudacao_inicial']['template'].format(saudacao=saudacao)
-
 
 def limpar_formatacao_markdown(texto: str) -> str:
     """
@@ -63,7 +61,6 @@ def limpar_formatacao_markdown(texto: str) -> str:
     texto = texto.replace("**", "").replace("*", "").replace("__", "")
     return texto.strip()
 
-
 def adicionar_mensagem_rastreamento(content: str, contexto: str, sender: str) -> str:
     """
     Adiciona mensagem solicitando CPF ou código de rastreio quando NF é EXPEDIDO.
@@ -76,10 +73,10 @@ def adicionar_mensagem_rastreamento(content: str, contexto: str, sender: str) ->
     Returns:
         Conteúdo com mensagem adicional se necessário
     """
-    # Evita adicionar mensagem se já existe no conteúdo
+
     if "📍 Deseja rastrear" in content:
         return content
-    
+
     if "EXPEDIDO" in contexto and sender:
         from functions.contexto import obter_contexto_nf
         ctx = obter_contexto_nf(sender)
@@ -137,13 +134,13 @@ def construir_contexto_nf(dados_nf: dict) -> str:
 
         if tipo_rastreamento == 'codigo':
             if codigo_rastreio_nf and codigo_rastreio_nf != 'Não disponível':
-                mensagem_rastreamento = f"📍 Deseja rastrear seu pedido em tempo real? Basta enviar o código de rastreio abaixo:\n\n🔢 Código: {codigo_rastreio_nf}"
+                mensagem_rastreamento = f"📍 Deseja rastrear seu pedido? Basta enviar o código de rastreio abaixo:\n\n🔢 Código: {codigo_rastreio_nf}"
             else:
                 mensagem_rastreamento = "📍 Para rastrear seu pedido, envie o código de rastreio fornecido pela transportadora."
         elif 'logan' in transportadora_lower:
-            mensagem_rastreamento = "📍 Deseja rastrear seu pedido em tempo real?\n\n✉️ Envie o *CPF do destinatário* para acompanhar a entrega."
+            mensagem_rastreamento = "📍 Deseja rastrear seu pedido?\n\n✉️ Envie o *CPF do destinatário* para acompanhar a entrega."
         else:
-            mensagem_rastreamento = "📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
+            mensagem_rastreamento = "📍 Deseja rastrear seu pedido? Envie o CPF do destinatário."
 
         contexto += f"""
 

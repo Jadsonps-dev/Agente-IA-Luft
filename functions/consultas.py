@@ -1,4 +1,3 @@
-
 """
 Módulo responsável por consultas ao WMS.
 """
@@ -47,7 +46,6 @@ def extrair_data_mensagem(mensagem):
             data_fim = hoje.strftime("%d/%m/%Y")
 
     return data_inicio, data_fim
-
 
 def consultar_nota_fiscal(numero_nf):
     """
@@ -128,7 +126,6 @@ def consultar_nota_fiscal(numero_nf):
         f"NF {numero_nf} não encontrada em nenhum dos depositantes")
     return {'encontrado': False, 'numero_nf': numero_nf}
 
-
 def consultar_nota_fiscal_e_detectar_transportadora(numero_nf, sender):
     """
     Consulta informações da nota fiscal e detecta a transportadora para solicitar
@@ -136,7 +133,7 @@ def consultar_nota_fiscal_e_detectar_transportadora(numero_nf, sender):
     """
     from functions.contexto import salvar_contexto_nf
     from functions.rastreamento import detectar_tipo_rastreamento
-    
+
     dados_nf = consultar_nota_fiscal(numero_nf)
 
     if not dados_nf or not dados_nf.get('encontrado'):
@@ -151,9 +148,9 @@ def consultar_nota_fiscal_e_detectar_transportadora(numero_nf, sender):
     if status_atual == "EXPEDIDO":
         transportadora_lower = transportadora.lower()
         tipo_rastreamento = detectar_tipo_rastreamento(transportadora)
-        
+
         salvar_contexto_nf(sender, dados_nf['numero_nf'], status_atual, transportadora, codigo_rastreio, primeiro_nome, cep, tipo_rastreamento)
-        
+
         if tipo_rastreamento == 'correios':
             prompt_para_ia = f"O pedido {dados_nf['numero_nf']} está EXPEDIDO via {transportadora}. O código de rastreio é {codigo_rastreio}. Solicite o código de rastreio se o cliente quiser rastrear."
         elif tipo_rastreamento == 'codigo':
