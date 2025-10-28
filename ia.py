@@ -195,6 +195,10 @@ def consultar_nota_fiscal(numero_nf):
                         columns[2] if columns[2] else 'Não informada',
                         'codigo_rastreio':
                         columns[3] if columns[3] else 'Não disponível',
+                        'destinatario': columns[4] if len(columns) > 4 else '',
+                        'cpf_destinatario': columns[5] if len(columns) > 5 else '',
+                        'cep_destinatario': columns[6] if len(columns) > 6 else '',
+                        'primeiro_nome': columns[7] if len(columns) > 7 else '',
                         'id_depositante': id_depositante
                     }
 
@@ -293,11 +297,14 @@ def detectar_tipo_rastreamento(transportadora: str) -> str:
 
     if 'dialogo' in transportadora_lower or 'diálogo' in transportadora_lower:
         return 'cpf'
+    
+    if 'logan' in transportadora_lower:
+        return 'cpf'
 
     return 'cpf'
 
 
-def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora: str = '', codigo_rastreio: str = ''):
+def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora: str = '', codigo_rastreio: str = '', primeiro_nome: str = '', cep: str = ''):
     """
     Salva contexto de NF consultada no Redis.
 
@@ -307,6 +314,8 @@ def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora:
         status: Status da NF
         transportadora: Nome da transportadora
         codigo_rastreio: Código de rastreio (se disponível)
+        primeiro_nome: Primeiro nome do destinatário
+        cep: CEP do destinatário
     """
     tipo_rastreamento = detectar_tipo_rastreamento(transportadora)
 
@@ -315,6 +324,8 @@ def salvar_contexto_nf(sender: str, numero_nf: str, status: str, transportadora:
         'status': status,
         'transportadora': transportadora,
         'codigo_rastreio': codigo_rastreio,
+        'primeiro_nome': primeiro_nome,
+        'cep': cep,
         'tipo_rastreamento': tipo_rastreamento,
         'timestamp': time.time()
     }
@@ -396,6 +407,23 @@ def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
             else:
                 resultado = f"❌ Não foi possível rastrear o código {dado_rastreio} na Magalog. Verifique se o código está correto."
 
+        elif 'logan' in transportadora_lower:
+            transportadora_key = 'logan'
+            dado_rastreio = mensagem
+            primeiro_nome = contexto.get('primeiro_nome', '')
+            cep = contexto.get('cep', '')
+            
+            logger.info(f"Rastreando NF {numero_nf} via Logan com CPF, Nome: {primeiro_nome}, CEP: {cep}")
+            
+            from api import obter_transportadora
+            logan_api = obter_transportadora('logan')
+            pedido = logan_api.buscar_pedido_com_dados_completos(dado_rastreio, primeiro_nome, cep, numero_nf)
+            
+            if pedido:
+                resultado = logan_api.formatar_rastreamento(pedido)
+            else:
+                resultado = f"❌ Não foi possível rastrear o pedido {numero_nf} na Logan. Verifique os dados informados."
+        
         elif 'dialogo' in transportadora_lower or 'diálogo' in transportadora_lower:
             transportadora_key = 'dialogo'
             dado_rastreio = mensagem
@@ -448,9 +476,11 @@ def perguntar_ia(mensagem_usuario, instance=None, sender=None):
                     status_nf = dados_nf['status']
                     transportadora_nf = dados_nf.get('transportadora', '')
                     codigo_rastreio_nf = dados_nf.get('codigo_rastreio', '')
+                    primeiro_nome_nf = dados_nf.get('primeiro_nome', '')
+                    cep_nf = dados_nf.get('cep_destinatario', '')
 
                     if status_nf == 'EXPEDIDO' and sender:
-                        salvar_contexto_nf(sender, dados_nf['numero_nf'], status_nf, transportadora_nf, codigo_rastreio_nf)
+                        salvar_contexto_nf(sender, dados_nf['numero_nf'], status_nf, transportadora_nf, codigo_rastreio_nf, primeiro_nome_nf, cep_nf)
 
                     contexto = f"""
                         INFORMAÇÕES DA NOTA FISCAL {dados_nf['numero_nf']}:

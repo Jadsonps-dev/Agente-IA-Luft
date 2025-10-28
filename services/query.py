@@ -38,7 +38,8 @@ class Queries:
 
             dest.razaosocial AS "Destinatário",
             decode(dest.pessoa, 'J', dest.cgc, dest.cic) AS "CNPJ Destinatário",
-            nfi.cep_dest AS "CEP Destinatário"
+            nfi.cep_dest AS "CEP Destinatário",
+            SUBSTR(dest.razaosocial, 1, INSTR(dest.razaosocial || ' ', ' ') - 1) AS "Primeiro Nome"
 
         FROM notafiscal nf
         JOIN nfimpressao nfi 
