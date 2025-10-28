@@ -247,7 +247,8 @@ def eh_cpf(mensagem: str) -> bool:
 def eh_codigo_rastreio(mensagem: str) -> bool:
     """
     Detecta se uma mensagem é um código de rastreio.
-    Geralmente são códigos alfanuméricos (letras + números).
+    Códigos de rastreio geralmente têm mais de 10 caracteres e podem conter letras.
+    NFs geralmente são apenas números com 6-9 dígitos.
 
     Args:
         mensagem: Mensagem do usuário
@@ -257,15 +258,25 @@ def eh_codigo_rastreio(mensagem: str) -> bool:
     """
     # Remove espaços e pontuação
     codigo = mensagem.strip().upper()
+    codigo_limpo = re.sub(r'\D', '', codigo)
+    
+    # Se for só números e tiver menos de 10 dígitos, provavelmente é NF, não código
+    if codigo.isdigit() and len(codigo) < 10:
+        return False
+    
+    # Códigos de rastreio da Magalog têm 13 dígitos (só números)
+    # Mas precisam ter mais de 10 para diferenciar de NF
+    if codigo.isdigit() and len(codigo) >= 10:
+        logger.info(f"✅ Código de rastreio Magalog detectado: {codigo}")
+        return True
 
-    # Código de rastreio geralmente tem letras e números, entre 10-20 caracteres
-    # Exemplos: "BR123456789BR", "AA123456789BR", etc
+    # Códigos alfanuméricos (letras + números), entre 8-25 caracteres
     if 8 <= len(codigo) <= 25:
         tem_letra = any(c.isalpha() for c in codigo)
         tem_numero = any(c.isdigit() for c in codigo)
 
         if tem_letra and tem_numero:
-            logger.info(f"✅ Código de rastreio detectado: {codigo}")
+            logger.info(f"✅ Código de rastreio alfanumérico detectado: {codigo}")
             return True
 
     return False
@@ -380,21 +391,35 @@ def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
             else:
                 return f"❌ A transportadora {transportadora_nome} requer o código de rastreio, não CPF."
 
-        # Determinar transportadora key
+        # Determinar transportadora key e dado de rastreio
         transportadora_lower = transportadora_nome.lower()
-        if 'magalog' in transportadora_lower:
+        if 'magalog' in transportadora_lower or 'magalu log' in transportadora_lower:
             transportadora_key = 'magalog'
-            dado_rastreio = codigo_rastreio_contexto if tipo == 'codigo' else mensagem
+            # Para Magalog, usa o código de rastreio enviado pelo usuário
+            dado_rastreio = mensagem.strip()
+            logger.info(f"🔍 Rastreando Magalog - Código: {dado_rastreio}")
+            
+            # Importa e usa diretamente a API Magalog
+            from api import obter_transportadora
+            magalog_api = obter_transportadora('magalog')
+            pedido = magalog_api.buscar_pedido_por_codigo(dado_rastreio)
+            
+            if pedido:
+                resultado = magalog_api.formatar_rastreamento(pedido)
+            else:
+                resultado = f"❌ Não foi possível rastrear o código {dado_rastreio} na Magalog. Verifique se o código está correto."
+                
         elif 'dialogo' in transportadora_lower or 'diálogo' in transportadora_lower:
             transportadora_key = 'dialogo'
             dado_rastreio = mensagem
+            logger.info(f"🔍 Rastreando NF {numero_nf} via {transportadora_key} com CPF")
+            resultado = rastrear_pedido(dado_rastreio, numero_nf, transportadora=transportadora_key)
         else:
             # Padrão: assume CPF
             transportadora_key = 'dialogo'
             dado_rastreio = mensagem
-
-        logger.info(f"🔍 Rastreando NF {numero_nf} via {transportadora_key} com {tipo}")
-        resultado = rastrear_pedido(dado_rastreio, numero_nf, transportadora=transportadora_key)
+            logger.info(f"🔍 Rastreando NF {numero_nf} via {transportadora_key} com {tipo}")
+            resultado = rastrear_pedido(dado_rastreio, numero_nf, transportadora=transportadora_key)
 
         # Limpa contexto após usar
         redis_client.delete(f"contexto_nf:{sender}")
