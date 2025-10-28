@@ -417,7 +417,7 @@ def processar_rastreamento(mensagem: str, sender: str, tipo: str) -> str:
             
             from api import obter_transportadora
             logan_api = obter_transportadora('logan')
-            pedido = logan_api.buscar_pedido_com_dados_completos(dado_rastreio, primeiro_nome, cep, numero_nf)
+            pedido = logan_api.buscar_pedido_com_dados_completos(dado_rastreio, primeiro_nome, cep, str(numero_nf))
             
             if pedido:
                 resultado = logan_api.formatar_rastreamento(pedido)

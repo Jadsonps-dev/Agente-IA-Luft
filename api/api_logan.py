@@ -182,7 +182,7 @@ class LoganTransportadora(BaseTransportadora):
             Dict com dados do pedido ou None
         """
         try:
-            logger.info(f"Buscando pedido Logan com dados completos")
+            logger.info(f"Buscando pedido Logan com dados completos - NF: {numero_fiscal}")
 
             dados = self.consultar_por_cpf(cpf, primeiro_nome, cep)
             pedidos = self.extrair_pedidos(dados)
@@ -191,13 +191,26 @@ class LoganTransportadora(BaseTransportadora):
                 logger.warning("Logan: Nenhum pedido encontrado")
                 return None
 
-            if numero_fiscal:
+            # Converte numero_fiscal para string e remove espaços
+            numero_fiscal_str = str(numero_fiscal).strip() if numero_fiscal else ""
+
+            if numero_fiscal_str:
+                # Remove caracteres não numéricos para comparação
+                numero_fiscal_limpo = re.sub(r'\D', '', numero_fiscal_str)
+                
                 for pedido in pedidos:
-                    if str(pedido.get('numero_fiscal', '')).strip() == numero_fiscal.strip():
-                        logger.info(f"Logan: Pedido NF {numero_fiscal} encontrado!")
+                    pedido_nf = str(pedido.get('numero_fiscal', '')).strip()
+                    pedido_nf_limpo = re.sub(r'\D', '', pedido_nf)
+                    
+                    if pedido_nf_limpo == numero_fiscal_limpo:
+                        logger.info(f"Logan: Pedido NF {numero_fiscal} encontrado! Código rastreio: {pedido.get('pedido_transportadora')}")
                         return pedido
 
-            # Se não especificou NF ou não encontrou, retorna o primeiro
+                logger.warning(f"Logan: NF {numero_fiscal} não encontrada entre os {len(pedidos)} pedidos retornados")
+                return None
+
+            # Se não especificou NF, retorna o primeiro
+            logger.info(f"Logan: Retornando primeiro pedido (total: {len(pedidos)})")
             return pedidos[0] if pedidos else None
 
         except Exception as e:
