@@ -150,23 +150,21 @@ class MagalogTransportadora(BaseTransportadora):
         mensagem = f"📦 *RASTREAMENTO - MAGALOG*\n\n"
 
         if pedido.get('codigo_rastreio'):
-            mensagem += f"🔢 *Código:* {pedido['codigo_rastreio']}\n"
+            mensagem += f"🔢 *Código:* {pedido['codigo_rastreio']}\n\n"
 
         eventos = pedido.get('eventos', [])
 
         if not eventos:
-            mensagem += "\n⚠️ Nenhum evento de rastreamento encontrado."
+            mensagem += "⚠️ Nenhum evento de rastreamento encontrado."
             return mensagem
 
-        mensagem += "\n📍 *HISTÓRICO DE RASTREAMENTO:*\n"
+        # Mostra apenas o último evento (mais recente)
+        ultimo_evento = eventos[0]
+        data = ultimo_evento.get('data', 'N/A')
+        descricao = ultimo_evento.get('descricao', 'N/A')
 
-        # Mostra todos os eventos (do mais recente ao mais antigo)
-        for evento in eventos:
-            data = evento.get('data', 'N/A')
-            descricao = evento.get('descricao', 'N/A')
-
-            mensagem += f"\n📝 *{descricao}*\n"
-            mensagem += f"🕒 {data}\n"
+        mensagem += f"📝 *{descricao}*\n"
+        mensagem += f"🕒 {data}"
 
         return mensagem
 
