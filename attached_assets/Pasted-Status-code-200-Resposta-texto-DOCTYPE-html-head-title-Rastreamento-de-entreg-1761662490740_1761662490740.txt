@@ -1,0 +1,27 @@
+Status code: 200
+Resposta (texto):
+<!DOCTYPE html>
+   <head>
+      <title>Rastreamento de entregas do consumidor Logan Express</title>
+      <link href="//netdna.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+      <link rel="stylesheet" href="https://simexpress-merge.s3.sa-east-1.amazonaws.com/Skin/consumidor_LOGAN.css">
+   </head>
+   
+   <body>
+      <h3><div align= "center">Logan Express - Rastreamento do consumidor</div></h3>
+      <div class = "container form-pesq">
+               </div>
+
+      <div class = "container">
+      <form class = "form-pesq" role = "form"    action = "/logan/consumidor/index.php" method = "post">
+            <input type = "text" class = "form-control"  name = "documento" placeholder = "Documento (CPF/CNPJ)" required autofocus value="34101183813">
+            <input type = "text" class = "form-control"  name = "primeironome" placeholder = "Primeiro Nome" required value="lavinia">       
+                           <input type = "text" class = "form-control"  name = "cep" placeholder = "CEP da entrega" required value="13325041">
+            </br>
+            <button class = "btn btn-warning btn-block" type = "submit" name = "login">Procurar as encomendas</button>
+         </form>
+         <h4>
+                  </h4>
+         <table id='grid' class='table table-striped table-hover table-bordered table-responsive' ><tr class='titulo'><td class='titulocelula'>Nome Tomador</td><td class='titulocelula'>Pedido Tomador</td><td class='titulocelula'>Coletado em</td><td class='titulocelula'>Previsao de Entrega</td><td class='titulocelula'>Status Transportadora</td><td class='titulocelula'>Pedido Transportadora</td></tr><tr  class='linha'><td  class='linhacelula'>INSIDER</td><td  class='linhacelula'>6319613247637</td><td  class='linhacelula'>03-10-2025</td><td  class='linhacelula'>06-10-2025</td><td  class='linhacelula'><a href='../rastreador/rastreador.php?CodigoAcesso=INS4D3&idPedido=6035496' target='blank'>ENTREGA REALIZADA</a></td><td  class='linhacelula'>6035496</td></tr><tr  class='linha'><td  class='linhacelula'>INSIDER</td><td  class='linhacelula'>6304702202005</td><td  class='linhacelula'>25-09-2025</td><td  class='linhacelula'>26-09-2025</td><td  class='linhacelula'><a href='../rastreador/rastreador.php?CodigoAcesso=INS4D3&idPedido=5946305' target='blank'>ENTREGA REALIZADA</a></td><td  class='linhacelula'>5946305</td></tr><tr  class='linha'><td  class='linhacelula'>INSIDER</td><td  class='linhacelula'>6289290952853</td><td  class='linhacelula'>16-09-2025</td><td  class='linhacelula'>17-09-2025</td><td  class='linhacelula'><a href='../rastreador/rastreador.php?CodigoAcesso=INS4D3&idPedido=5845917' target='blank'>ENTREGA REALIZADA</a></td><td  class='linhacelula'>5845917</td></tr><tr  class='linha'><td  class='linhacelula'>INSIDER</td><td  class='linhacelula'>6279981367445</td><td  class='linhacelula'>09-09-2025</td><td  class='linhacelula'>10-09-2025</td><td  class='linhacelula'><a href='../rastreador/rastreador.php?CodigoAcesso=INS4D3&idPedido=5760573' target='blank'>ENTREGA REALIZADA</a></td><td  class='linhacelula'>5760573</td></tr><tr  class='linha'><td  class='linhacelula'>INSIDER</td><td  class='linhacelula'>6270888640661</td><td  class='linhacelula'>04-09-2025</td><td  class='linhacelula'>05-09-2025</td><td  class='linhacelula'><a href='../rastreador/rastreador.php?CodigoAcesso=INS4D3&idPedido=5694936' target='blank'>ENTREGA REALIZADA</a></td><td  class='linhacelula'>5694936</td></tr><tr  class='linha'><td  class='linhacelula'>INSIDER</td><td  class='linhacelula'>6265268600981</td><td  class='linhacelula'>01-09-2025</td><td  class='linhacelula'>02-09-2025</td><td  class='linhacelula'><a href='../rastreador/rastreador.php?CodigoAcesso=INS4D3&idPedido=5665856' target='blank'>ENTREGA REALIZADA</a></td><td  class='linhacelula'>5665856</td></tr><tr  class='linha'><td  class='linhacelula'>INSIDER</td><td  class='linhacelula'>6244363862165</td><td  class='linhacelula'>19-08-2025</td><td  class='linhacelula'>20-08-2025</td><td  class='linhacelula'><a href='../rastreador/rastreador.php?CodigoAcesso=INS4D3&idPedido=5513965' target='blank'>ENTREGA REALIZADA</a></td><td  class='linhacelula'>5513965</td></tr></table>      </div>
+   </body>
+</html>
