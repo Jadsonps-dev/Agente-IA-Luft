@@ -127,15 +127,11 @@ class CorreiosTransportadora(BaseTransportadora):
         codigo = pedido.get('codObjeto', 'N/A')
         tipo_postal = pedido.get('tipoPostal', {})
         categoria = tipo_postal.get('categoria', 'N/A')
-        descricao = tipo_postal.get('descricao', 'N/A')
-        dt_prevista = pedido.get('dtPrevista', 'N/A')
         eventos = pedido.get('eventos', [])
 
         mensagem = f"📦 *RASTREAMENTO - CORREIOS*\n\n"
         mensagem += f"📋 *Código:* {codigo}\n"
-        mensagem += f"📮 *Tipo:* {descricao}\n"
-        mensagem += f"🏷️ *Categoria:* {categoria}\n"
-        mensagem += f"📅 *Previsão de Entrega:* {dt_prevista}\n\n"
+        mensagem += f"🏷️ *Categoria:* {categoria}\n\n"
         
         # Mostra apenas o último evento (status atual)
         if eventos:

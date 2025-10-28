@@ -105,6 +105,15 @@ class EvolutionAPI:
 
             if response.status_code == 201:
                 print("Imagem enviada com sucesso!")
+                
+                # Apaga o arquivo após envio bem-sucedido
+                try:
+                    if os.path.exists(qr_filename):
+                        os.remove(qr_filename)
+                        print(f"Arquivo {qr_filename} removido com sucesso")
+                except Exception as e_file:
+                    print(f"Erro ao remover arquivo: {str(e_file)}")
+                
                 return True
             else:
                 print(f"Erro na API: {response.json().get('message', 'Erro desconhecido')}")
