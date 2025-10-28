@@ -113,7 +113,7 @@ class CorreiosTransportadora(BaseTransportadora):
 
     def formatar_rastreamento(self, pedido: dict) -> str:
         """
-        Formata dados de rastreamento dos Correios.
+        Formata dados de rastreamento dos Correios mostrando apenas o status atual.
 
         Args:
             pedido: Dict com dados completos do rastreamento
@@ -136,6 +136,23 @@ class CorreiosTransportadora(BaseTransportadora):
         mensagem += f"📮 *Tipo:* {descricao}\n"
         mensagem += f"🏷️ *Categoria:* {categoria}\n"
         mensagem += f"📅 *Previsão de Entrega:* {dt_prevista}\n\n"
+        
+        # Mostra apenas o último evento (status atual)
+        if eventos:
+            ultimo_evento = eventos[0]
+            descricao_evento = ultimo_evento.get('descricao', 'N/A')
+            data_evento = ultimo_evento.get('dtHrCriado', 'N/A')
+            
+            unidade = ultimo_evento.get('unidade', {})
+            local = unidade.get('nome', 'N/A') if unidade else 'N/A'
+            
+            mensagem += f"📍 *STATUS ATUAL:*\n\n"
+            mensagem += f"🔹 {descricao_evento}\n"
+            mensagem += f"   📅 {data_evento}\n"
+            mensagem += f"   📍 {local}\n"
+        else:
+            mensagem += "❌ Nenhum evento de rastreamento disponível.\n"
+
         mensagem += f"📍 *EVENTOS DE RASTREAMENTO:*\n\n"
 
         for evento in eventos:
