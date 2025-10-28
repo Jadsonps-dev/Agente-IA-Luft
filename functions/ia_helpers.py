@@ -89,11 +89,11 @@ def adicionar_mensagem_rastreamento(content: str, contexto: str, sender: str) ->
             codigo_rastreio = ctx.get('codigo_rastreio', '')
 
             if tipo_rastreamento == 'correios':
-                content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o código de rastreio."
+                content += f"\n\n📍 Deseja rastrear seu pedido? Envie o código de rastreio."
             elif tipo_rastreamento == 'codigo' and codigo_rastreio:
-                content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o código de rastreio."
+                content += f"\n\n📍 Deseja rastrear seu pedido? Envie o código de rastreio."
             else:
-                content += f"\n\n📍 Deseja rastrear seu pedido em tempo real? Envie o CPF do destinatário."
+                content += f"\n\n📍 Deseja rastrear seu pedido? Envie o CPF do destinatário." o CPF do destinatário."
 
     return content
 

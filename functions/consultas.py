@@ -150,11 +150,15 @@ def consultar_nota_fiscal_e_detectar_transportadora(numero_nf, sender):
 
     if status_atual == "EXPEDIDO":
         transportadora_lower = transportadora.lower()
-        if 'magalog' in transportadora_lower:
-            salvar_contexto_nf(sender, dados_nf['numero_nf'], status_atual, transportadora, codigo_rastreio, primeiro_nome, cep)
+        tipo_rastreamento = detectar_tipo_rastreamento(transportadora)
+        
+        salvar_contexto_nf(sender, dados_nf['numero_nf'], status_atual, transportadora, codigo_rastreio, primeiro_nome, cep, tipo_rastreamento)
+        
+        if tipo_rastreamento == 'correios':
+            prompt_para_ia = f"O pedido {dados_nf['numero_nf']} está EXPEDIDO via {transportadora}. O código de rastreio é {codigo_rastreio}. Solicite o código de rastreio se o cliente quiser rastrear."
+        elif tipo_rastreamento == 'codigo':
             prompt_para_ia = f"O pedido {dados_nf['numero_nf']} está EXPEDIDO via {transportadora}. O código de rastreio é {codigo_rastreio}. Solicite o código de rastreio se o cliente quiser rastrear."
         else:
-            salvar_contexto_nf(sender, dados_nf['numero_nf'], status_atual, transportadora, codigo_rastreio, primeiro_nome, cep)
             prompt_para_ia = f"O pedido {dados_nf['numero_nf']} está EXPEDIDO via {transportadora}. Solicite o CPF do destinatário para rastrear a entrega."
 
         return {**dados_nf, 'prompt_adicional': prompt_para_ia}
